@@ -60,7 +60,7 @@ script = ExtResource("1_wefod")
 layout_mode = 2
 size_flags_vertical = 0
 theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
+theme_override_constants/margin_top = 30
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 

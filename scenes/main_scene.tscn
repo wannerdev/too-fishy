@@ -25,7 +25,7 @@
 [ext_resource type="Script" uid="uid://q0tu1in7y6pf" path="res://scripts/musicplayer.gd" id="22_k67gn"]
 [ext_resource type="Material" uid="uid://dv7qrtiq87nj0" path="res://materials/walls/walls.tres" id="22_u0fll"]
 [ext_resource type="ArrayMesh" uid="uid://c54e8dk8jsryd" path="res://meshes/vains_v003.obj" id="23_6p3nn"]
-[ext_resource type="PackedScene" uid="uid://cu74jh81r7l20" path="res://scenes/dock_3_remesh.tscn" id="23_k3g67"]
+[ext_resource type="PackedScene" path="res://scenes/dock_3_remesh.tscn" id="23_k3g67"]
 [ext_resource type="Material" uid="uid://bupgrlcbs4i6k" path="res://materials/walls/veins.tres" id="24_k67gn"]
 [ext_resource type="PackedScene" uid="uid://peitbuaqkkcm" path="res://scenes/ui/achievement_panel.tscn" id="24_qr5t3"]
 
@@ -42,7 +42,7 @@ PanelContainer/styles/panel = ExtResource("9_6u1mn")
 ProgressBar/styles/fill = SubResource("StyleBoxFlat_6u1mn")
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_subway"]
-bg_color = Color(0.05, 0.2, 0.3, 0.85)
+bg_color = Color(0.0509804, 0.2, 0.301961, 1)
 border_width_left = 3
 border_width_top = 3
 border_width_right = 3
@@ -183,7 +183,7 @@ z_index = -1
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 170.0
+offset_bottom = 105.0
 grow_horizontal = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_subway")
 script = ExtResource("7_c16ls")
@@ -281,6 +281,7 @@ label_settings = SubResource("LabelSettings_kkokr")
 horizontal_alignment = 1
 
 [node name="CooldownInfo" type="HBoxContainer" parent="UI/HUD/MarginContainer/HUDContainer"]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 5
@@ -516,17 +517,6 @@ theme_override_font_sizes/font_size = 16
 text = "0m"
 horizontal_alignment = 1
 
-[node name="inv_ui" parent="UI" instance=ExtResource("9_c1pb6")]
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -227.0
-offset_top = 175.0
-offset_right = 0.0
-offset_bottom = 292.0
-grow_horizontal = 0
-
 [node name="AchievementUI" parent="UI" instance=ExtResource("24_qr5t3")]
 layout_mode = 1
 offset_left = -190.0
@@ -626,6 +616,18 @@ offset_left = 130.0
 offset_top = 262.0
 offset_right = 444.0
 offset_bottom = 438.0
+
+[node name="inv_ui" parent="UI" instance=ExtResource("9_c1pb6")]
+z_index = -2
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -1920.0
+offset_top = 93.0
+offset_right = -1722.62
+offset_bottom = 228.0
+grow_horizontal = 0
 
 [node name="FPS Counter" type="Label" parent="UI"]
 layout_mode = 2
