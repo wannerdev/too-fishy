@@ -1,0 +1,36 @@
+[gd_scene load_steps=5 format=3 uid="uid://dqrgvgxo5q2tb"]
+
+[ext_resource type="Script" uid="uid://cj8nms7hv52wt" path="res://scripts/mind_control_zone.gd" id="1_abc123"]
+[ext_resource type="Shader" uid="uid://dviah6yxcaqn2" path="res://Shaders/mind_control_effect.gdshader" id="2_def456"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_1"]
+radius = 8.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
+render_priority = 10
+shader = ExtResource("2_def456")
+shader_parameter/pull_strength = 5.0
+shader_parameter/wobble_frequency = 2.845
+shader_parameter/wobble_amplitude = 0.1
+shader_parameter/color_tint = Color(0.8, 0.3, 0.9, 0.6)
+shader_parameter/distortion_scale = 0.4
+shader_parameter/time_speed = 1.0
+shader_parameter/custom_time = 9.77
+
+[node name="MindControlZone" type="Area3D"]
+script = ExtResource("1_abc123")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_1")
+
+[node name="VisualEffect" type="MeshInstance3D" parent="."]
+material_override = SubResource("ShaderMaterial_1")
+cast_shadow = 0
+extra_cull_margin = 16384.0
+
+[node name="PullTimer" type="Timer" parent="."]
+wait_time = 0.1
+autostart = true
+
+[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="."]
+volume_db = -10.0
