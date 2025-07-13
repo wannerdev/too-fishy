@@ -64,6 +64,9 @@ const UPGRADE_SCREEN_BORDER_COLOR = Color(0.2, 0.4, 0.7) # Teal border from upgr
 const UPGRADE_SCREEN_TEXT_COLOR = Color(0.2, 0.4, 0.7) # Teal text color
 
 func _ready():
+	# Hide the entire cooldown info panel since we're using floating rings
+	cooldown_info_panel.visible = false
+	
 	# Initially hide upgrade-dependent panels
 	buoy_panel.visible = false
 	drone_panel.visible = false

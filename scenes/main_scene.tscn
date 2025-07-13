@@ -25,7 +25,7 @@
 [ext_resource type="Script" uid="uid://q0tu1in7y6pf" path="res://scripts/musicplayer.gd" id="22_k67gn"]
 [ext_resource type="Material" uid="uid://dv7qrtiq87nj0" path="res://materials/walls/walls.tres" id="22_u0fll"]
 [ext_resource type="ArrayMesh" uid="uid://c54e8dk8jsryd" path="res://meshes/vains_v003.obj" id="23_6p3nn"]
-[ext_resource type="PackedScene" path="res://scenes/dock_3_remesh.tscn" id="23_k3g67"]
+[ext_resource type="PackedScene" uid="uid://cu74jh81r7l20" path="res://scenes/dock_3_remesh.tscn" id="23_k3g67"]
 [ext_resource type="Material" uid="uid://bupgrlcbs4i6k" path="res://materials/walls/veins.tres" id="24_k67gn"]
 [ext_resource type="PackedScene" uid="uid://peitbuaqkkcm" path="res://scenes/ui/achievement_panel.tscn" id="24_qr5t3"]
 
@@ -520,8 +520,8 @@ horizontal_alignment = 1
 [node name="AchievementUI" parent="UI" instance=ExtResource("24_qr5t3")]
 layout_mode = 1
 offset_left = -190.0
-offset_top = 300.0
-offset_bottom = 720.0
+offset_top = 105.0
+offset_bottom = 525.0
 
 [node name="CenterContainer" type="CenterContainer" parent="UI"]
 layout_mode = 1
@@ -611,23 +611,12 @@ text = "Respawn
 layout_mode = 2
 
 [node name="Cheats" parent="UI" instance=ExtResource("13_4w45t")]
+visible = false
 layout_mode = 0
 offset_left = 130.0
 offset_top = 262.0
 offset_right = 444.0
 offset_bottom = 438.0
-
-[node name="inv_ui" parent="UI" instance=ExtResource("9_c1pb6")]
-z_index = -2
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -1920.0
-offset_top = 93.0
-offset_right = -1722.62
-offset_bottom = 228.0
-grow_horizontal = 0
 
 [node name="FPS Counter" type="Label" parent="UI"]
 layout_mode = 2
@@ -645,6 +634,17 @@ script = ExtResource("22_k67gn")
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="Audiomanager"]
 
 [node name="AudioStreamPlayer2" type="AudioStreamPlayer" parent="Audiomanager"]
+
+[node name="inv_ui" parent="." instance=ExtResource("9_c1pb6")]
+z_index = -2
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -2142.0
+offset_top = 95.0
+offset_right = -1944.62
+offset_bottom = 230.0
+grow_horizontal = 0
 
 [node name="LeftWall" type="StaticBody3D" parent="."]
 transform = Transform3D(-0.00814527, 1.2191, 0.00407302, -0.672664, -0.00789123, 1.01674, 1.01673, 0.0045457, 0.672698, -13.6118, -4.41036, -8.67722)

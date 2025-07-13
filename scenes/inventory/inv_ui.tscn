@@ -48,10 +48,9 @@ corner_radius_bottom_left = 4
 [sub_resource type="LabelSettings" id="LabelSettings_rm0ga"]
 
 [node name="inv_ui" type="PanelContainer"]
-offset_left = 279.0
-offset_top = 131.0
-offset_right = 558.0
-offset_bottom = 229.0
+offset_top = -1.0
+offset_right = 279.0
+offset_bottom = 134.0
 size_flags_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_inv_bg")
 script = ExtResource("1_wefod")
@@ -73,13 +72,20 @@ theme_override_constants/separation = 6
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_header")
 
+[node name="BankAccountLabel" type="Label" parent="MarginContainer/VBoxContainer/MoneyPanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.4, 0.7, 1)
+theme_override_font_sizes/font_size = 16
+text = " Bank Account: "
+label_settings = SubResource("LabelSettings_celo0")
+
 [node name="MoneyLabel" type="Label" parent="MarginContainer/VBoxContainer/MoneyPanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.2, 0.4, 0.7, 1)
 theme_override_font_sizes/font_size = 16
-text = "Bank Account: $25"
+text = "$25"
 label_settings = SubResource("LabelSettings_celo0")
-horizontal_alignment = 1
+horizontal_alignment = 2
 
 [node name="InfoPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2

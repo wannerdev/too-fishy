@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://durrtmu3i450r"]
+[gd_scene load_steps=20 format=3 uid="uid://durrtmu3i450r"]
 
 [ext_resource type="Script" uid="uid://b4nuxfxo3kvlq" path="res://scripts/player.gd" id="1_3vyb7"]
 [ext_resource type="Texture2D" uid="uid://bygn7y3qpn8xs" path="res://Shaders/AllSkyFree_Sky_EpicBlueSunset_Equirect.png" id="2_fjrip"]
@@ -7,6 +7,7 @@
 [ext_resource type="ArrayMesh" uid="uid://dva5riw4x0j1l" path="res://meshes/SM_FishSubmarine_FINAL.obj" id="5_smehm"]
 [ext_resource type="Material" uid="uid://dat2e8q6cpmmp" path="res://materials/submarine.tres" id="6_smehm"]
 [ext_resource type="PackedScene" uid="uid://cv7cru1o8ec0" path="res://scenes/ak47.tscn" id="6_tuyoq"]
+[ext_resource type="PackedScene" path="res://scenes/cooldown_visualization.tscn" id="7_cooldown"]
 [ext_resource type="PackedScene" uid="uid://dk2e78xplfhbv" path="res://scenes/ak_47_.tscn" id="8_ur7pv"]
 [ext_resource type="Script" uid="uid://dws0iatvikhls" path="res://scripts/items/secondAk47.gd" id="9_ur7pv"]
 
@@ -75,10 +76,10 @@ mesh = ExtResource("5_smehm")
 surface_material_override/0 = ExtResource("6_smehm")
 
 [node name="Hand" type="Node3D" parent="Pivot/SmFishSubmarine"]
-transform = Transform3D(4.96379, 0.600684, 0, -0.600684, 4.96379, 0, 0, 0, 5, 2.02766, -4.24867, 1.55206)
+transform = Transform3D(4.96379, 0.600684, 0, -0.600684, 4.96379, 0, 0, 0, 5, 3.76286, -2.57438, 1.55206)
 
 [node name="pickaxe" parent="Pivot/SmFishSubmarine/Hand" instance=ExtResource("4_qlg0r")]
-transform = Transform3D(0.969579, 0.244783, 0, -0.244783, 0.969579, 0, 0, 0, 1, 0, 0, 0)
+transform = Transform3D(0.932009, 0.362438, 0, -0.362438, 0.932009, 0, 0, 0, 1, -0.00366241, 0.0302158, 0)
 
 [node name="ak47_0406195124_texture" parent="Pivot/SmFishSubmarine" instance=ExtResource("6_tuyoq")]
 transform = Transform3D(-2.5, 0, 2.18557e-07, 0, 2.5, 0, -2.18557e-07, 0, -2.5, 2.13988, -0.0920478, 2.07124)
@@ -143,6 +144,8 @@ gravity = Vector3(0, 0, 0)
 initial_velocity_min = 1.0
 initial_velocity_max = 3.0
 color = Color(1, 1, 0.137255, 1)
+
+[node name="CooldownVisualization" parent="." instance=ExtResource("7_cooldown")]
 
 [connection signal="section_changed" from="." to="Camera3D" method="change_section_environment"]
 [connection signal="timeout" from="HarpoonCD" to="." method="_on_timer_timeout"]
