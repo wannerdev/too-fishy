@@ -37,8 +37,9 @@ var boss_dialog_lines = {
 	Boss.BossDialogSections.RESCUE_CALL: ["[color=#E0E0E0]Uhhhh- I did an oopsie, I think you need to come and get me :S[/color]"],
 	Boss.BossDialogSections.BOSS_INTRO: ["[color=#E0E0E0]Hahaha, I got your friend, looser!\nHis mind is under my control now!\nYou better not do anything stupid or he dies![/color]"],
 	Boss.BossDialogSections.BOSS_KILLS_FRIEND: ["[color=#E0E0E0]Ohhhh, that was a mistake![/color]", "[color=#E0E0E0]*Splash*[/color]", "[color=#E0E0E0]Your friend is dead now![/color]"],
-	Boss.BossDialogSections.FRIEND_RESCUED: ["[color=#E0E0E0]Oh my god thank you! That [/color][color=#f21820ae]mind controlling blobfish[/color][color=#E0E0E0]!\nYou getting close has freed me from his spell!\nYou need to stay close to me and [/color][color=#D35400]escort me to the top[/color][color=#E0E0E0]![/color]"],
-	Boss.BossDialogSections.WIN: ["[color=#E0E0E0]You rescued your friend from the evil mind controlling blobfish![/color]", "[color=#E0E0E0]Congratulations, you beat our game. Feel free to keep fishing, the first game idea was created in Ludum dare 57.[/color]"]
+	Boss.BossDialogSections.FRIEND_RESCUED: ["[color=#E0E0E0]Oh my god thank you! That [/color][color=#f21820ae]mind controlling blobfish[/color][color=#E0E0E0]!\nYou killed it![/color]", "[color=#E0E0E0]I thought I was a goner![/color]", "[color=#E0E0E0]I will follow you to the surface, I can't wait to get out of here![/color]"],
+	Boss.BossDialogSections.WIN: ["[color=#E0E0E0]You rescued your friend from the evil mind controlling blobfish![/color]", "[color=#E0E0E0]Congratulations, you beat our game. Feel free to keep fishing, the first game idea was created in Ludum dare 57.[/color]"],
+	Boss.BossDialogSections.BOSS_DEFEATED: ["[color=#E0E0E0]The mind-controlling blobfish has been killed![/color]", "[color=#E0E0E0]Thank you! Come get us, we will follow your lead![/color]"]
 	}
 
 var upgradeDescriptions = {

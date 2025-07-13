@@ -11,7 +11,7 @@ signal boss_health_changed(health)
 signal boss_spawned_signal(max_health)
 signal boss_defeated_signal
 
-enum BossDialogSections {TUTORIAL1, TUTORIAL2, TUTORIAL3, TUTORIAL4, RESCUE_CALL, BOSS_INTRO, BOSS_KILLS_FRIEND, FRIEND_RESCUED, WIN}
+enum BossDialogSections {TUTORIAL1, TUTORIAL2, TUTORIAL3, TUTORIAL4, RESCUE_CALL, BOSS_INTRO, BOSS_KILLS_FRIEND, FRIEND_RESCUED, WIN, BOSS_DEFEATED}
 
 var boss_dialog_from = {
 	BossDialogSections.TUTORIAL1: "John",
@@ -22,6 +22,7 @@ var boss_dialog_from = {
 	BossDialogSections.BOSS_INTRO: "???",
 	BossDialogSections.BOSS_KILLS_FRIEND: "Blobfish",
 	BossDialogSections.FRIEND_RESCUED: "John",
+	BossDialogSections.BOSS_DEFEATED: "John",
 	BossDialogSections.WIN: "Too Fishy",
 }
 
@@ -50,7 +51,7 @@ func take_damage(amount):
 		defeat_boss()
 
 func defeat_boss():
-	setDialogStage(BossDialogSections.WIN)
+	setDialogStage(BossDialogSections.BOSS_DEFEATED)
 	emit_signal("boss_defeated_signal")
 	if boss_node:
 		boss_node.queue_free()
