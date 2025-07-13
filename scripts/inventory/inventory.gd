@@ -139,22 +139,23 @@ func release_fish(fish_item: InvItem) -> void:
 	if player == null:
 		return
 		
-	# Determine which fish type to spawn based on price/weight ratio
-	var price_per_weight = fish_item.price / float(fish_item.weight)
-	var fish_type = FishesConfig.FishType.FLAMY # Default type
+	# Use the actual stored fish type instead of guessing
+	var stored_type = fish_item.type
+	var fish_type = FishesConfig.FishType.FLAMY # Default fallback
 	
-	# Find the closest matching fish type based on price/weight ratio
-	var best_match_diff = INF
-	for type in FishesConfig.fishConfigMap:
-		var config = FishesConfig.fishConfigMap[type]
-		var avg_weight = (config.weight_min + config.weight_max) / 2.0
-		var avg_price = avg_weight * config.price_weight_multiplier
-		var config_ratio = avg_price / avg_weight
-		
-		var diff = abs(config_ratio - price_per_weight)
-		if diff < best_match_diff:
-			best_match_diff = diff
-			fish_type = type
+	# Convert stored type (string) to enum value
+	if stored_type.is_valid_int():
+		# If it's stored as a number string like "0", "1", etc.
+		var type_int = int(stored_type)
+		if type_int >= 0 and type_int < FishesConfig.FishType.size():
+			fish_type = type_int
+	else:
+		# If it's stored as a name string like "FLAMY", "GREENY", etc.
+		var enum_keys = FishesConfig.FishType.keys()
+		for i in range(enum_keys.size()):
+			if enum_keys[i] == stored_type:
+				fish_type = i
+				break
 	
 	# Create and position the fish
 	var fish_config = FishesConfig.fishConfigMap[fish_type]
@@ -170,8 +171,8 @@ func release_fish(fish_item: InvItem) -> void:
 	var spawn_pos = player.global_position + spawn_offset
 	spawn_pos.z = -0.3 # Standard z-depth for fish
 	
-	# Calculate if fish should be shiny based on price/weight ratio
-	var is_shiny = price_per_weight > (fish_config.price_weight_multiplier * 2)
+	# Use the actual stored shiny value instead of guessing
+	var is_shiny = fish_item.shiny
 	
 	# Initialize the fish with properties similar to the inventory item
 	fish.initialize(

@@ -123,3 +123,7 @@ func upgrade(mUpgrade: Upgrade) -> bool:
 
 func notify_inventory_updated():
 	emit_signal("inventory_updated")
+
+func is_boss_defeated() -> bool:
+	# Boss is defeated when the WIN dialog stage has been reached
+	return Boss.boss_dialog_section == Boss.BossDialogSections.WIN

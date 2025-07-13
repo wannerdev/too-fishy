@@ -1,11 +1,8 @@
-[gd_scene load_steps=8 format=3 uid="uid://d0ykw70micab6"]
+[gd_scene load_steps=6 format=3 uid="uid://d0ykw70micab6"]
 
 [ext_resource type="Script" uid="uid://dwvvnqqk7jqak" path="res://scripts/boss_character.gd" id="1_dlmty"]
-[ext_resource type="PackedScene" uid="uid://b7f4f6jsfjutn" path="res://meshes/SM_Blobert.fbx" id="2_neq0i"]
 [ext_resource type="ArrayMesh" uid="uid://ci3g3w5my2wjd" path="res://meshes/SM_Blobert.obj" id="3_qsl3t"]
 [ext_resource type="Material" uid="uid://dxhaj24revj7w" path="res://materials/fishes.tres" id="4_qnbj4"]
-
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_6wevv"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_jncid"]
 radius = 1.50957
@@ -17,16 +14,8 @@ script = ExtResource("1_dlmty")
 
 [node name="Pivot" type="Node3D" parent="."]
 
-[node name="Placeholder" type="MeshInstance3D" parent="Pivot"]
-visible = false
-mesh = SubResource("CapsuleMesh_6wevv")
-
-[node name="SM_Blobert" parent="Pivot" instance=ExtResource("2_neq0i")]
-transform = Transform3D(27.945, 0, 0, 0, 27.945, 0, 0, 0, 27.945, 0, 0, 0)
-visible = false
-
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Pivot"]
-transform = Transform3D(1.33748e-15, -3.0598e-08, -0.7, -0.7, -3.0598e-08, 0, -3.0598e-08, 0.7, -3.0598e-08, 0, 0, 0)
+transform = Transform3D(1.33748e-15, -3.0598e-08, -0.7, -0.7, -3.0598e-08, 4.44692e-21, -3.0598e-08, 0.7, -3.0598e-08, 0, 0.909437, 0)
 mesh = ExtResource("3_qsl3t")
 surface_material_override/0 = ExtResource("4_qnbj4")
 

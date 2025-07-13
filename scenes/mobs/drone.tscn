@@ -7,11 +7,13 @@
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_qs71y"]
 
-[node name="Drone" type="CharacterBody3D" groups=["fishes"]]
+[node name="Drone" type="CharacterBody3D" node_paths=PackedStringArray("shiny_particles") groups=["fishes"]]
 axis_lock_linear_z = true
 axis_lock_angular_x = true
 motion_mode = 1
 script = ExtResource("1_hc20j")
+mesh_instance_path = NodePath("Pivot/short_submar_texture/Mesh1")
+shiny_particles = NodePath("ShinyParticles")
 
 [node name="Pivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.118526, 0, 0)

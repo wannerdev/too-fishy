@@ -6,7 +6,8 @@ enum FishType {
 	GREENY,
 	ANGLER,
 	SMALLY,
-	SPIKEY
+	SPIKEY,
+	BOSS_MINI
 }
 
 var fishConfigMap = {
@@ -59,6 +60,16 @@ var fishConfigMap = {
 		difficulty = 5,
 		scene = preload("res://scenes/mobs/spikey_fish.tscn"),
 		icon = preload("res://textures/icons/spikey_fish.png")
+	},
+	FishType.BOSS_MINI: {
+		weight_min = 8,
+		weight_max = 15,
+		price_weight_multiplier = 20,
+		speed_min = 0.3,
+		speed_max = 1.2,
+		difficulty = 15,
+		scene = preload("res://scenes/mobs/boss_mini_fish.tscn"),
+		icon = preload("res://textures/icons/boss_icon.png")
 	}
 }
 
@@ -119,9 +130,10 @@ var fishSectionMap = {
 		shiny_rate = .06,
 		weight_multiplier = 1.15,
 		spawnRates = {
-			FishType.ANGLER: .7,
+			FishType.ANGLER: .55,
 			FishType.SMALLY: .2,
-			FishType.SPIKEY: .1
+			FishType.SPIKEY: .1,
+			FishType.BOSS_MINI: .15
 		}
 	},
 	GameState.Stage.VOID: {

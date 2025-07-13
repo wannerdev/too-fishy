@@ -349,7 +349,22 @@ func activate_surface_buoy():
 		cooldown_timer_buoy.start()
 
 func is_mouse_over_ui() -> bool:
-	return get_viewport().gui_get_focus_owner() != null
+	# Check if any UI element has focus
+	if get_viewport().gui_get_focus_owner() != null:
+		#print("UI blocked: element has focus")
+		return true
+	
+	# Simple check: if inventory menu is open, block all shooting
+	if inventory_menu and inventory_menu.visible:
+		#print("UI blocked: inventory menu is open")
+		return true
+	
+	# Check if pause menu is open  
+	if pause_menu and pause_menu.visible:
+		#print("UI blocked: pause menu is open")
+		return true
+	
+	return false
 	
 
 func onDock():
@@ -675,15 +690,26 @@ func toggle_inventory_menu():
 	if inventory_menu == null:
 		# Find the menu in the scene
 		var ui_parent = get_tree().get_root().find_child("UI", true, false)
-		if ui_parent and ui_parent.has_node("CenterContainer/InventoryMenu"):
-			inventory_menu = ui_parent.get_node("CenterContainer/InventoryMenu")
+		print("UI parent found: ", ui_parent)
+		if ui_parent:
+			if ui_parent.has_node("CenterContainer/InventoryMenu"):
+				inventory_menu = ui_parent.get_node("CenterContainer/InventoryMenu")
+				print("Inventory menu found: ", inventory_menu)
+			else:
+				print("InventoryMenu not found at CenterContainer/InventoryMenu")
+				# Try alternative paths
+				inventory_menu = ui_parent.find_child("InventoryMenu", true, false)
+				print("Alternative search result: ", inventory_menu)
 	
 	# Toggle the menu
 	if inventory_menu:
+		print("Toggling inventory menu. Current visible: ", inventory_menu.visible)
 		if inventory_menu.visible:
 			inventory_menu.close()
 		else:
 			inventory_menu.open()
+	else:
+		print("inventory_menu is null - cannot toggle")
 
 func connect_achievement_system(system):
 	achievement_system = system

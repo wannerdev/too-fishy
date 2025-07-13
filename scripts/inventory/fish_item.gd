@@ -83,22 +83,34 @@ func setup(items: Array):
 	else:
 		count_badge.visible = false
 	
-	# Find matching fish type based on price/weight ratio
-	var price_per_weight = item.price / float(item.weight)
-	fish_type = FishesConfig.FishType.FLAMY # Default type
+	# Use the actual stored fish type instead of guessing
+	var stored_type = item.type
+	fish_type = FishesConfig.FishType.FLAMY # Default fallback
 	
-	# Find the closest matching fish type based on price/weight ratio
-	var best_match_diff = INF
-	for type in FishesConfig.fishConfigMap:
-		var config = FishesConfig.fishConfigMap[type]
-		var avg_weight = (config.weight_min + config.weight_max) / 2.0
-		var avg_price = avg_weight * config.price_weight_multiplier
-		var config_ratio = avg_price / avg_weight
-		
-		var diff = abs(config_ratio - price_per_weight)
-		if diff < best_match_diff:
-			best_match_diff = diff
-			fish_type = type
+	#print("Fish item setup - stored_type: '", stored_type, "', price: ", item.price, ", weight: ", item.weight, ", shiny: ", item.shiny)
+	
+	# Convert stored type (string) to enum value
+	if stored_type.is_valid_int():
+		# If it's stored as a number string like "0", "1", etc.
+		var type_int = int(stored_type)
+		if type_int >= 0 and type_int < FishesConfig.FishType.size():
+			fish_type = type_int
+			print("Successfully converted stored fish type: ", type_int, " (", FishesConfig.FishType.keys()[type_int], ")")
+		else:
+			print("ERROR: Invalid fish type number: ", type_int)
+	else:
+		# If it's stored as a name string like "FLAMY", "GREENY", etc.
+		var enum_keys = FishesConfig.FishType.keys()
+		var found = false
+		for i in range(enum_keys.size()):
+			if enum_keys[i] == stored_type:
+				fish_type = i
+				print("Successfully converted stored fish type: ", stored_type, " -> ", i)
+				found = true
+				break
+		if not found:
+			print("ERROR: Could not find fish type for: '", stored_type, "'")
+			print("Available types: ", enum_keys)
 	
 	# Load the fish image
 	load_fish_image(item.shiny)
@@ -107,36 +119,44 @@ func load_fish_image(is_shiny: bool):
 	# Get the fish config
 	var fish_config = FishesConfig.fishConfigMap[fish_type]
 	
-	# TODO: Load prerendered fish image based on fish_type and is_shiny
-	# Placeholder implementation - should be replaced with actual prerendered images
-	var placeholder = ColorRect.new()
-	placeholder.color = Color(0.2, 0.4, 0.7, 1.0)  # Placeholder blue color
-	
-	# Change color for shiny fish
-	if is_shiny:
-		placeholder.color = Color(0.8, 0.7, 0.2, 1.0)  # Golden color for shiny fish
-	
 	# Clear any existing content
 	for child in fish_image.get_children():
 		child.queue_free()
 	
-	fish_image.add_child(placeholder)
-	placeholder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	placeholder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Create background color for visual feedback
+	var background = ColorRect.new()
+	background.color = Color(0.1, 0.1, 0.1, 0.5)  # Semi-transparent dark background
 	
-	# Add grid pattern overlay
-	var grid_lines = Control.new()
-	placeholder.add_child(grid_lines)
-	grid_lines.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Change background color for shiny fish
+	if is_shiny:
+		background.color = Color(0.8, 0.7, 0.2, 0.3)  # Golden tint for shiny fish
 	
-	grid_lines.connect("draw", _draw_grid_overlay.bind(grid_lines))
+	background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fish_image.add_child(background)
 	
-	# Add fish type label as placeholder
-	var label = Label.new()
-	label.text = "Fish Type: " + str(fish_type)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	placeholder.add_child(label)
+	# Add fish icon
+	var icon_texture = TextureRect.new()
+	icon_texture.texture = fish_config.icon
+	icon_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon_texture.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	icon_texture.set_anchors_preset(Control.PRESET_FULL_RECT)
+	
+	# Add some padding to the icon
+	var margin = 4
+	icon_texture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, margin)
+	
+	# Check if icon is loaded
+	if fish_config.icon == null:
+		print("WARNING: No icon found for fish type: ", fish_type, " (", FishesConfig.FishType.keys()[fish_type], ")")
+		# Add fallback text if icon is missing
+		var fallback_label = Label.new()
+		fallback_label.text = "Type: " + str(fish_type)
+		fallback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fallback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		fallback_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+		fish_image.add_child(fallback_label)
+	else:
+		fish_image.add_child(icon_texture)
 
 func _draw_grid_overlay(control):
 	var rect = control.get_rect()

@@ -1,0 +1,33 @@
+[gd_scene load_steps=7 format=3 uid="uid://bmh8fvw1c8dnq"]
+
+[ext_resource type="Script" uid="uid://ckbs05slsrxf2" path="res://scripts/fish.gd" id="1_boss_mini"]
+[ext_resource type="ArrayMesh" uid="uid://ci3g3w5my2wjd" path="res://meshes/SM_Blobert.obj" id="2_boss_mini"]
+[ext_resource type="Material" uid="uid://dxhaj24revj7w" path="res://materials/fishes.tres" id="3_boss_mini"]
+[ext_resource type="Material" uid="uid://ntxihwik5ww0" path="res://materials/mobs/ShinyParticles.tres" id="4_boss_mini"]
+[ext_resource type="PrismMesh" uid="uid://dkttjpdmphyxv" path="res://materials/mobs/ShinyParticlesMesh.tres" id="5_boss_mini"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_boss_mini"]
+radius = 0.15
+
+[node name="BossMiniFish" type="CharacterBody3D" node_paths=PackedStringArray("shiny_particles") groups=["fishes"]]
+axis_lock_linear_z = true
+axis_lock_angular_x = true
+motion_mode = 1
+script = ExtResource("1_boss_mini")
+shiny_particles = NodePath("ShinyParticles")
+
+[node name="Pivot" type="Node3D" parent="."]
+transform = Transform3D(0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1, 0, 0, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Pivot"]
+transform = Transform3D(-0.7, 0.000280873, -7.17421e-06, 0.000280964, 0.699772, -0.017872, 7.81212e-10, -0.017872, -0.699772, 0, 0, 0)
+mesh = ExtResource("2_boss_mini")
+surface_material_override/0 = ExtResource("3_boss_mini")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_boss_mini")
+
+[node name="ShinyParticles" type="GPUParticles3D" parent="."]
+emitting = false
+process_material = ExtResource("4_boss_mini")
+draw_pass_1 = ExtResource("5_boss_mini")

@@ -52,11 +52,25 @@ func spawn_fish(spawn_all: bool = false):
 		var spawn_pos = Vector3(randf_range(spawn_marker_a.position.x, spawn_marker_b.position.x),
 							randf_range(spawn_marker_a.position.y, spawn_marker_b.position.y), 1)
 		spawn_pos.z = -0.3
+		# Get available fish types (excluding boss mini if boss not defeated)
+		var available_fish_types = {}
+		var total_spawn_rate = 0.0
+		
+		for type in FishesConfig.fishSectionMap[sectionType].spawnRates:
+			# Skip boss mini fish if boss hasn't been defeated yet
+			if type == FishesConfig.FishType.BOSS_MINI and not GameState.is_boss_defeated():
+				continue
+			available_fish_types[type] = FishesConfig.fishSectionMap[sectionType].spawnRates[type]
+			total_spawn_rate += FishesConfig.fishSectionMap[sectionType].spawnRates[type]
+		
+		# Normalize random value to available fish types
+		r = r * total_spawn_rate
+		
 		var commulative_spawn_rate = 0
 		var spawn_fish_config = null
 		var fishType = null
-		for type in FishesConfig.fishSectionMap[sectionType].spawnRates:
-			commulative_spawn_rate += FishesConfig.fishSectionMap[sectionType].spawnRates[type]
+		for type in available_fish_types:
+			commulative_spawn_rate += available_fish_types[type]
 			if r <= commulative_spawn_rate:
 				fishType = type
 				spawn_fish_config = FishesConfig.fishConfigMap[type]
