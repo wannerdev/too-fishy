@@ -687,7 +687,7 @@ transform = Transform3D(-0.8744, 0.469662, -0.121833, 0.246398, 0.213504, -0.945
 light_energy = 0.09
 
 [node name="BossHealthBar" parent="." instance=ExtResource("29_4bgka")]
-offset_left = -872.0
-offset_top = -964.0
-offset_right = -372.0
-offset_bottom = -934.0
+offset_left = -947.0
+offset_top = -969.0
+offset_right = 950.0
+offset_bottom = -939.0
