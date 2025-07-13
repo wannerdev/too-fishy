@@ -18,7 +18,7 @@ func _process(_delta: float) -> void:
 	snappedDepth = snapped(player.position.y, 1) * -1
 	if player.position.y < (lastSpawned):
 		spawnNewSection(lastSpawned - sectionHeight)
-	if GameState.maxDepthReached > Boss.boss_spawn_height && Boss.boss_spawned == false:
+	if GameState.maxDepthReached > Boss.boss_spawn_height && Boss.boss_spawned == false && Boss.boss_defeated_permanently == false:
 		var boss_spawn_loc = (GameState.maxDepthReached * -1) - 25
 		spawnBoss(boss_spawn_loc)
 	

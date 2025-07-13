@@ -2,6 +2,14 @@ extends Node
 var boss_spawned = false
 var boss_spawn_height = 500
 var boss_node: Node3D = null
+var boss_defeated_permanently = false
+
+var boss_max_health = 100
+var boss_health = 100
+
+signal boss_health_changed(health)
+signal boss_spawned_signal(max_health)
+signal boss_defeated_signal
 
 enum BossDialogSections {TUTORIAL1, TUTORIAL2, TUTORIAL3, TUTORIAL4, RESCUE_CALL, BOSS_INTRO, BOSS_KILLS_FRIEND, FRIEND_RESCUED, WIN}
 
@@ -31,10 +39,24 @@ var boss_dialog_index = 0
 func setBossSpawned(boss: Node3D):
 	boss_spawned = true
 	boss_node = boss
+	boss_health = boss_max_health
+	emit_signal("boss_spawned_signal", boss_max_health)
 	setDialogStage(BossDialogSections.BOSS_INTRO)
 
-func attackBoss():
-	setDialogStage(BossDialogSections.BOSS_KILLS_FRIEND)
+func take_damage(amount):
+	boss_health -= amount
+	emit_signal("boss_health_changed", boss_health)
+	if boss_health <= 0:
+		defeat_boss()
+
+func defeat_boss():
+	setDialogStage(BossDialogSections.WIN)
+	emit_signal("boss_defeated_signal")
+	if boss_node:
+		boss_node.queue_free()
+		boss_node = null
+	boss_spawned = false
+	boss_defeated_permanently = true
 
 func setDialogStage(section: BossDialogSections):
 	boss_dialog_section = section
@@ -44,10 +66,11 @@ func setDialogStage(section: BossDialogSections):
 	get_tree().paused = true
 	
 func process_dialog_depth():
+	# Don't process depth-based dialog after boss fight has started or concluded
+	if boss_dialog_section >= BossDialogSections.BOSS_INTRO:
+		return
+		
 	for section in dialog_depth_map.keys():
 		if GameState.maxDepthReached >= dialog_depth_map[section]:
 			if boss_dialog_section < section:
 				setDialogStage(section)
-				
-	
-	

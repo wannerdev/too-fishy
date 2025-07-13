@@ -15,6 +15,7 @@ var has_hit_player = false
 
 func _ready():
 	$Area3D.body_entered.connect(_on_body_entered)
+	add_to_group("boss")  # Add boss to group for projectile detection
 
 func _physics_process(delta):
 	if player == null:
@@ -73,3 +74,7 @@ func _on_body_entered(body):
 	if state == BossStates.CHARGING and body == player:
 		on_player_collision(player)
 		has_hit_player = true
+
+func take_damage(amount):
+	Boss.take_damage(amount)
+

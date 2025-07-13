@@ -24,4 +24,6 @@ func _physics_process(delta):
 			queue_free() # Remove harpoon after hit
 			break # Only catch one fish per harpoon
 		if body.is_in_group("boss"):
-			Boss.attackBoss()
+			Boss.take_damage(5)
+			queue_free()
+			break
