@@ -1,0 +1,12 @@
+some to do prompts:
+nice also increase the z-index of the effects of the fish getting caught.
+Create a scatter area, there is already a implementation used for the player and around the dock, place it around and below the invisible barrier. 
+Scatter area does not collide with fish yet or is not correctly placed.
+
+Reset the damage effects, check if they reset correctly.
+
+
+
+
+
+

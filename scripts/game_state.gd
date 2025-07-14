@@ -85,7 +85,7 @@ var inventory: Inv = Inv.new()
 var playerInStage: Stage = Stage.SURFACE
 
 # Intro mission state
-@export var enable_intro_mission: bool = false  # Flag to control whether to start intro mission
+@export var enable_intro_mission: bool = true  # Flag to control whether to start intro mission
 var current_game_mode: GameMode = GameMode.NORMAL
 var is_first_time_player = true
 var intro_mission_completed = false
@@ -183,6 +183,8 @@ func start_intro_mission():
 	await get_tree().process_frame
 	if player_node:
 		player_node.position = Vector3(-8, -450, 0.33)  # Start in hot zone
+		# Switch to friend submarine appearance (yellow submarine)
+		player_node.switch_to_friend_submarine()
 		# Note: Removed invulnerability - friend can take damage during intro mission
 	
 	# Additional state reset to ensure clean start
@@ -293,6 +295,8 @@ func setup_friend_upgrades():
 	for upgrade2 in upgrades:
 		if upgrade2 == Upgrade.PICKAXE_UNLOCKED:
 			upgrades[upgrade2] = 0  # Friend has no pickaxe
+		elif upgrade2 == Upgrade.SURFACE_BUOY:
+			upgrades[upgrade2] = 0
 		else:
 			upgrades[upgrade2] = maxUpgrades[upgrade2]  # Max level for everything else
 	

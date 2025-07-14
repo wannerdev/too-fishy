@@ -60,6 +60,25 @@ func spawn_intro_mission_sections():
 	add_child(invisible_barrier)
 	print("Invisible barrier created at 400m depth")
 	
+	# Create scatter area around and below the invisible barrier
+	var scatter_area = Area3D.new()
+	scatter_area.name = "InvisibleBarrierScatterArea"
+	scatter_area.position = Vector3(-15, -400, 0)  # 20m below the barrier
+	scatter_area.monitorable = false
+	
+	# Create collision shape for scatter area (larger area around and below barrier)
+	var scatter_collision = CollisionShape3D.new()
+	var scatter_box = BoxShape3D.new()
+	scatter_box.size = Vector3(40, 60, 15)  # Wide area around and below barrier
+	scatter_collision.shape = scatter_box
+	scatter_area.add_child(scatter_collision)
+	
+	# Connect scatter signal
+	scatter_area.body_entered.connect(_on_barrier_scatter_area_entered)
+	
+	add_child(scatter_area)
+	print("Scatter area created around invisible barrier")
+	
 	# Spawn PreBarrier section at y=-400
 	var pre_barrier_section = section.instantiate()
 	pre_barrier_section.name = "IntroSection_PreBarrier_400m"
@@ -209,6 +228,12 @@ func remove_intro_mission_elements():
 		barrier.queue_free()
 		print("Removed invisible barrier")
 	
+	# Remove scatter area around barrier
+	var scatter_area = get_node_or_null("InvisibleBarrierScatterArea")
+	if scatter_area:
+		scatter_area.queue_free()
+		print("Removed barrier scatter area")
+	
 	# Remove all intro mission sections
 	var sections_to_remove = []
 	for child in get_children():
@@ -231,3 +256,11 @@ func restore_normal_death_processing():
 	
 	# The normal death processing in player.gd will handle showing upgrade menu and death screen
 	print("Health set to 0 - normal death sequence will handle UI restoration")
+
+func _on_barrier_scatter_area_entered(body: Node3D) -> void:
+	"""Handle fish entering the scatter area around the invisible barrier"""
+	if body.is_in_group("fishes"):
+		# Make fish scatter away from the barrier area
+		if body.has_method("scatter"):
+			body.scatter(player)  # Use the player as the scatter source
+		print("Fish scattered at invisible barrier area: ", body.name)

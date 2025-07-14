@@ -294,7 +294,7 @@ func setup_cooldown_timer(timer_name: String, wait_time: float) -> void:
 func activate_surface_buoy():
 	# Only works if player is below the surface
 	if position.y < -1:
-		print("Surface buoy activated - surfacing in place")
+		#print("Surface buoy activated - surfacing in place")
 		
 		# Move player to surface (keep x/z position, just change y)
 		position.y = -1
@@ -303,41 +303,13 @@ func activate_surface_buoy():
 		sound_player.play_sound("bup")
 		
 		# Create visual effect at the submarine's actual surface position
-		var particles = CPUParticles3D.new()
-		particles.name = "SurfaceBuoyEffect"
-		
+		var particles = $SurfaceBuoyEffect.duplicate()
+		particles.emitting = true
 		# Set position before adding to scene
 		particles.position = position
 		
-		# Basic particle setup
-		particles.emitting = true
-		particles.one_shot = true
-		particles.explosiveness = 1.0
-		particles.amount = 50
-		particles.lifetime = 2.0
-		
-		# Particle appearance
-		var sphere_mesh = SphereMesh.new()
-		sphere_mesh.radius = 0.05
-		sphere_mesh.height = 0.1
-		particles.mesh = sphere_mesh
-		
-		# Movement settings
-		particles.direction = Vector3(0, 1, 0)
-		particles.spread = 45.0
-		particles.initial_velocity_min = 3.0
-		particles.initial_velocity_max = 8.0
-		particles.gravity = Vector3(0, -5, 0)
-		
-		# Color - light blue water splash
-		particles.color = Color(0.6, 0.9, 1.0, 1.0)
-		
 		# Add to scene
 		get_parent().add_child(particles)
-		
-		print("Submarine surfaced at: ", position)
-		print("Particles at: ", particles.position)
-		print("Particles emitting: ", particles.emitting)
 		
 		# Simple cleanup after 3 seconds
 		get_tree().create_timer(3.0).timeout.connect(func():
@@ -678,7 +650,6 @@ func add_trauma(trauma_amount: float):
 	trauma = clamp(trauma + trauma_amount, 0.0, 1.0)
 
 func activate_selling_drone():
-	# Load the dummy fish model to use as a drone
 	var drone_scene = preload("res://scenes/mobs/drone.tscn")
 	var drone = drone_scene.instantiate()
 	
@@ -816,10 +787,10 @@ func switch_to_friend_submarine():
 		omni_light.visible = true
 		$Pivot/SmFishSubmarine.add_child(omni_light)
 	
-	# Set friend submarine upgrades (all maxed except pickaxe)
+	# Set friend submarine upgrades (all maxed except pickaxe and buoy)
 	var original_upgrades = GameState.upgrades.duplicate()
 	for upgrade in GameState.Upgrade.values():
-		if upgrade != GameState.Upgrade.PICKAXE_UNLOCKED:
+		if upgrade != GameState.Upgrade.PICKAXE_UNLOCKED and upgrade != GameState.Upgrade.SURFACE_BUOY:
 			GameState.upgrades[upgrade] = GameState.maxUpgrades[upgrade]
 	
 	# Set money to $10,000

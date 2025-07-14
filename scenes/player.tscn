@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3 uid="uid://durrtmu3i450r"]
+[gd_scene load_steps=22 format=3 uid="uid://durrtmu3i450r"]
 
 [ext_resource type="Script" uid="uid://b4nuxfxo3kvlq" path="res://scripts/player.gd" id="1_3vyb7"]
 [ext_resource type="Texture2D" uid="uid://bygn7y3qpn8xs" path="res://Shaders/AllSkyFree_Sky_EpicBlueSunset_Equirect.png" id="2_fjrip"]
@@ -41,8 +41,16 @@ adjustment_color_correction = SubResource("GradientTexture1D_tuyoq")
 [sub_resource type="BoxShape3D" id="BoxShape3D_qlg0r"]
 size = Vector3(1, 1.13977, 1)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_y4r1p"]
+albedo_color = Color(0.141176, 0.372549, 1, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_d2wvv"]
+material = SubResource("StandardMaterial3D_y4r1p")
+radius = 0.05
+height = 0.1
+
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ur7pv"]
-albedo_color = Color(0.98, 0.94619, 0.3038, 1)
+albedo_color = Color(0.3038, 0.7546, 0.98, 1)
 
 [sub_resource type="TorusMesh" id="TorusMesh_y4r1p"]
 material = SubResource("StandardMaterial3D_ur7pv")
@@ -131,9 +139,22 @@ debug_color = Color(0.864206, 0.357529, 1.92523e-07, 0.42)
 [node name="PopupSpawnPosition" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.153614, 0.666139, 0)
 
+[node name="SurfaceBuoyEffect" type="CPUParticles3D" parent="."]
+emitting = false
+amount = 25
+lifetime = 1.8
+one_shot = true
+explosiveness = 0.8
+mesh = SubResource("SphereMesh_d2wvv")
+direction = Vector3(0, 1, 0)
+spread = 40.0
+gravity = Vector3(0, -5, 0)
+initial_velocity_min = 3.0
+initial_velocity_max = 8.0
+
 [node name="dronefart" type="CPUParticles3D" parent="."]
 emitting = false
-amount = 20
+amount = 5
 lifetime = 1.5
 one_shot = true
 explosiveness = 0.8

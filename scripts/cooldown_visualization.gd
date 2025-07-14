@@ -1,14 +1,8 @@
 extends CanvasLayer
 
-var top_rings_container: HBoxContainer
-var front_rings_container: HBoxContainer
 var control_node: Control
-
 var cooldown_rings = {}
 var player_node: CharacterBody3D
-
-# Ring positioning - fixed 2D positions
-var ring_spacing: float = 5.0
 
 func _ready():
 	# Set layer to be below UI elements (UI is typically on layer 1)
@@ -20,32 +14,6 @@ func _ready():
 	control.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(control)
 	
-	# Get viewport size and center
-	var viewport_size = get_viewport().get_visible_rect().size
-	var screen_center = viewport_size / 2
-	
-	# Create container for top rings (buoy, drone)
-	var top_container = HBoxContainer.new()
-	top_container.name = "TopRingsContainer"
-	top_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	top_container.add_theme_constant_override("separation", int(ring_spacing))
-	# Position relative to screen center: center horizontally, 200px above center
-	top_container.position = Vector2(screen_center.x , screen_center.y +15)  # -100 to center the 200px wide container
-	top_container.size = Vector2(200, 60)
-	control.add_child(top_container)
-	
-	# Create container for front rings (harpoon, ak47)
-	var front_container = HBoxContainer.new()
-	front_container.name = "FrontRingsContainer"
-	front_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	front_container.add_theme_constant_override("separation", int(ring_spacing))
-	# Position relative to screen center: center horizontally, 200px below center
-	front_container.position = Vector2(screen_center.x , screen_center.y + 150)  # -100 to center the 200px wide container
-	front_container.size = Vector2(200, 60)
-	control.add_child(front_container)
-	
-	top_rings_container = top_container
-	front_rings_container = front_container
 	control_node = control
 	
 	# Find player and camera
@@ -71,13 +39,33 @@ func create_cooldown_ring(item_name: String):
 	ring.setup(item_name)
 	ring.name = item_name + "_ring"
 	
-	# Add to appropriate container based on item type
-	if item_name in ["harpoon", "ak47"]:
-		front_rings_container.add_child(ring)
-	else:  # buoy, drone
-		top_rings_container.add_child(ring)
+	# Get viewport size and center for positioning
+	var viewport_size = get_viewport().get_visible_rect().size
+	var screen_center = viewport_size / 2
 	
+	# Position rings in overlapping pairs
+	match item_name:
+		"harpoon":
+			# Front position - center horizontally, 150px below center
+			ring.position = Vector2(screen_center.x +100 - ring.size.x / 2, screen_center.y + 160 - ring.size.y / 2)
+		"ak47":
+			# Same position as harpoon (will be bigger and behind it)
+			ring.position = Vector2(screen_center.x + 100- ring.size.x / 2, screen_center.y + 160 - ring.size.y / 2)
+		"drone":
+			# Top position - center horizontally, 15px below center
+			ring.position = Vector2(screen_center.x - ring.size.x / 2, screen_center.y +50 - ring.size.y / 2)
+		"buoy":
+			# Same position as drone (will be bigger and behind it)
+			ring.position = Vector2(screen_center.x - ring.size.x / 2, screen_center.y + 50	 - ring.size.y / 2)
+	
+	control_node.add_child(ring)
 	cooldown_rings[item_name] = ring
+	
+	# Ensure proper z-order: smaller rings (harpoon, drone) should be on top
+	if item_name in ["harpoon", "drone"]:
+		ring.z_index = 1  # On top
+	else:  # ak47, buoy
+		ring.z_index = 0  # Behind
 
 func _process(delta):
 	if not player_node:

@@ -11,6 +11,7 @@ var is_available: bool = true
 const COLOR_COOLDOWN_READY = Color(0, 0.36, 0.83, 0.8) # Blue
 const COLOR_COOLDOWN_ACTIVE = Color(0.918, 0.525, 0.212, 0.82) # Orange
 const COLOR_BACKGROUND = Color(0.05, 0.05, 0.05, 0.3) # Dark background
+const COLOR_HARPOON_READY_BRIGHT = Color(0.2, 0.6, 1.0, 0.9) # Brighter blue for harpoon with upgrade
 
 func _ready():
 	custom_minimum_size = Vector2(ring_radius * 2 + 10, ring_radius * 2 + 10)
@@ -18,6 +19,25 @@ func _ready():
 
 func setup(item_name_param: String):
 	item_name = item_name_param
+	# Set different ring sizes based on item type
+	match item_name:
+		"ak47":
+			ring_radius = 12.0  # Bigger than harpoon
+			ring_thickness = 5.0
+		"harpoon":
+			ring_radius = 8.0  # Default size
+			ring_thickness = 4.0
+		"buoy":
+			ring_radius = 12.0  # Bigger than drone
+			ring_thickness = 5.0
+		"drone":
+			ring_radius = 8.0  # Default size
+			ring_thickness = 4.0
+	
+	# Update size based on new radius
+	custom_minimum_size = Vector2(ring_radius * 2 + 10, ring_radius * 2 + 10)
+	size = custom_minimum_size
+	
 	# For now, use text fallbacks since specific icons don't exist
 	icon_texture = null
 
@@ -38,7 +58,14 @@ func _draw():
 	
 	# Draw progress ring
 	var progress_angle = progress * full_circle
-	var ring_color = COLOR_COOLDOWN_READY if progress >= 1.0 else COLOR_COOLDOWN_ACTIVE
+	var ring_color = COLOR_COOLDOWN_ACTIVE
+	
+	if progress >= 1.0:
+		# Use brighter blue for harpoon when upgrade is available
+		if item_name == "harpoon" and GameState.upgrades[GameState.Upgrade.HARPOON_ROTATION] > 0:
+			ring_color = COLOR_HARPOON_READY_BRIGHT
+		else:
+			ring_color = COLOR_COOLDOWN_READY
 	
 	if progress > 0:
 		# Draw from top (-PI/2) clockwise
