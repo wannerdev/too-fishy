@@ -113,6 +113,7 @@ var can_be_hurt = true
 
 func hurtPlayer(damage: int):
 	add_trauma(1)
+	
 	if can_be_hurt:
 		GameState.health -= damage
 		sound_player.play_sound("ughhh")
@@ -457,6 +458,11 @@ func _on_timer_timeout():
 	can_shoot = true
 
 func process_dock(delta):
+	# Skip docking during intro mission
+	if GameState.is_intro_mission_active():
+		GameState.isDocked = false
+		return
+	
 	# print(position)
 	if position.y >= -1 && position.x > -7:
 		if (GameState.health < 100.0):
@@ -482,15 +488,6 @@ func process_dock(delta):
 func process_depth_effects(delta):
 	GameState.headroom = ((GameState.upgrades[GameState.Upgrade.DEPTH_RESISTANCE] + 1) * 100 - GameState.depth)
 	
-	# Skip depth damage during intro mission setup or if player can't be hurt
-	if GameState.is_intro_mission_active() and not can_be_hurt:
-		return
-	
-	# Extra safety: Don't let health drop below 1 during intro mission setup
-	if GameState.is_intro_mission_active() and GameState.health < 1:
-		GameState.health = 100
-		print("Health safety reset during intro mission setup")
-	
 	# Get reference to damage effects
 	var ui_node = get_node("/root/Node3D/UI")
 	var damage_effects = null
@@ -502,27 +499,42 @@ func process_depth_effects(delta):
 			damage_effects = load("res://scenes/damage_effects.tscn").instantiate()
 			ui_node.add_child(damage_effects)
 	
+	# Check if we're under pressure
+	var is_under_pressure = false
 	if GameState.headroom < 0:
-		add_trauma(0.1)
-		GameState.health += GameState.headroom * delta
-		
-		# Trigger pressure crack effects
+		is_under_pressure = true
+	
+	# Only process depth effects if we're under pressure
+	if is_under_pressure:
 		if damage_effects:
 			damage_effects.process_pressure_damage(delta)
+		
+		# Calculate damage based on how far beyond our depth limit we are
+		var excess_depth = abs(GameState.headroom)
+		var damage_per_second = max(1, excess_depth / 10.0)  # Minimum 1 damage per second
+		var damage_this_frame = damage_per_second * delta
+		
+		# Apply damage
+		GameState.health -= damage_this_frame
+		
+		# Clamp health to prevent going below 0
+		GameState.health = max(0, GameState.health)
+		
+		# Check for death
+		if GameState.health <= 0:
+			print("Player died from depth pressure")
+			GameState.death_screen = true
+			GameState.paused = true
 	else:
-		# Safe depth - allow pressure cracks to start fading
+		# Reset pressure damage effects when not under pressure
 		if damage_effects:
-			damage_effects.end_pressure_damage()
+			damage_effects.reset_pressure_damage()
 	
 	# Lava damage only when actually in lava area (not just lava stage)
 	if is_in_lava_area:
 		process_lava_damage(delta)
 
 func process_lava_damage(delta):
-	# Skip lava damage during intro mission setup or if player can't be hurt
-	if GameState.is_intro_mission_active() and not can_be_hurt:
-		return
-	
 	# Lava damage: 10 damage per second when in lava stage
 	var lava_damage_per_second = 10.0
 	GameState.health -= lava_damage_per_second * delta
@@ -551,14 +563,6 @@ func process_lava_damage(delta):
 func process_death():
 	if GameState.health <= 0:
 		print("Player death detected - Health: ", GameState.health, " Intro mission active: ", GameState.is_intro_mission_active())
-		
-		# Don't process death if player is invulnerable during intro mission setup
-		if GameState.is_intro_mission_active() and not can_be_hurt:
-			print("Death processing skipped - player is invulnerable during intro mission setup")
-			GameState.health = 100  # Reset health to safe value
-			return
-		
-		sound_player.play_sound("ughhh")
 		
 		# Handle friend death during intro mission
 		if GameState.is_intro_mission_active():
@@ -859,6 +863,11 @@ func switch_to_normal_submarine():
 	if has_node("Pivot/SmFishSubmarine/UnlockableLamp"):
 		var spot_light = $Pivot/SmFishSubmarine/UnlockableLamp
 		spot_light.visible = GameState.upgrades[GameState.Upgrade.LAMP_UNLOCKED] > 0
+		
+		# Extra safety: Ensure light is off if upgrades are reset to 0
+		if GameState.upgrades[GameState.Upgrade.LAMP_UNLOCKED] == 0:
+			spot_light.visible = false
+			print("Light explicitly disabled - upgrade level is 0")
 	
 	# Hide AK47s since original player doesn't have those upgrades
 	if has_node("Pivot/SmFishSubmarine/ak47_0406195124_texture"):

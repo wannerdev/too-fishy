@@ -56,27 +56,33 @@ func show_damage_effects():
 
 # Called every frame while player is taking pressure damage
 func process_pressure_damage(delta):
+	# Only process if we're actually under pressure
 	if not is_under_pressure:
 		is_under_pressure = true
 		pressure_accumulation_timer = 0.0
-		# Cancel all existing crack fade timers
-		cancel_all_crack_fades()
+		print("Started pressure damage processing")
 	
+	# Accumulate pressure damage over time
 	pressure_accumulation_timer += delta
 	
-	# Add new pressure crack every interval
-	if pressure_accumulation_timer >= pressure_crack_spawn_interval and current_pressure_cracks < max_pressure_cracks:
-		add_pressure_crack()
-		pressure_accumulation_timer = 0.0
+	# Show red flash that gets more intense over time
+	var intensity = min(pressure_accumulation_timer / 3.0, 1.0)  # Max intensity after 3 seconds
+	red_flash.color = Color(1, 0, 0, intensity * 0.4)  # Red with up to 40% opacity
 	
-	# Grow existing pressure cracks over time
-	grow_pressure_cracks(delta)
+	# Add cracks periodically
+	if pressure_accumulation_timer > pressure_crack_spawn_interval and current_crack_count < max_cracks:
+		add_crack_layer()
+		pressure_accumulation_timer = 0.0  # Reset timer after adding crack
 
 # Called when pressure damage stops
-func end_pressure_damage():
+func reset_pressure_damage():
 	if is_under_pressure:
 		is_under_pressure = false
-		start_all_cracks_fade()
+		pressure_accumulation_timer = 0.0
+		print("Ended pressure damage processing")
+	
+	# Fade out red flash
+	red_flash.color = Color(1, 0, 0, 0)
 
 func add_crack_layer():
 	current_crack_count += 1

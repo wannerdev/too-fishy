@@ -51,7 +51,11 @@ func take_damage(amount):
 	
 	# Check for 50% health trigger during intro mission
 	if GameState.is_intro_mission_active() and boss_health <= (boss_max_health * 0.5):
-		trigger_friend_death()
+		print("Boss reached 50% health during intro mission - completing intro mission")
+		# Complete the intro mission
+		var level_node = get_node_or_null("/root/Node3D/Level")
+		if level_node:
+			level_node.switch_back_to_original_player()
 		return
 	
 	if boss_health <= 0:
@@ -70,20 +74,6 @@ func hide_boss_health_bar():
 	"""Hide the boss health bar (used when intro mission ends)"""
 	print("Hiding boss health bar after intro mission completion")
 	emit_signal("boss_health_bar_hidden")
-
-func trigger_friend_death():
-	"""Trigger friend death at 50% boss health during intro mission"""
-	print("Boss reached 50% health - triggering friend death")
-	
-	# Instantly kill the friend player
-	if GameState.player_node:
-		GameState.player_node.hurtPlayer(1000)  # Deal massive damage to kill instantly
-	
-	# Set dialog stage to show friend death
-	setDialogStage(BossDialogSections.BOSS_KILLS_FRIEND)
-	
-	# The actual player switching will be handled by the level system
-	# when the intro mission state changes
 
 func setDialogStage(section: BossDialogSections):
 	boss_dialog_section = section

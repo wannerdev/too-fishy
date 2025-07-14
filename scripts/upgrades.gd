@@ -29,110 +29,7 @@ var categories = {
 }
 
 func _ready():
-	# Add to group for easier reference
-	add_to_group("upgrades_menu")
-	
-	# Make the panel significantly bigger to display all upgrades without scrolling
-	custom_minimum_size = Vector2(900, 570)
-	
-	# Apply a style to the panel itself instead of adding a background image
-	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.05, 0.2, 0.3, 0.95) # Deep blue with high opacity
-	panel_style.set_border_width_all(3)
-	panel_style.border_color = Color(0.2, 0.4, 0.7)
-	panel_style.set_corner_radius_all(12)
-	add_theme_stylebox_override("panel", panel_style)
-	
-	# Create main container
-	var main_container = VBoxContainer.new()
-	main_container.size_flags_horizontal = SIZE_EXPAND_FILL
-	main_container.size_flags_vertical = SIZE_EXPAND_FILL
-	
-	# Add margin to the container for better padding
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 30)
-	margin.add_theme_constant_override("margin_right", 30)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_bottom", 30)
-	margin.size_flags_horizontal = SIZE_EXPAND_FILL
-	margin.size_flags_vertical = SIZE_EXPAND_FILL
-	margin.add_child(main_container)
-	add_child(margin)
-	
-	# Header section with title and money
-	var header_section = HBoxContainer.new()
-	header_section.size_flags_horizontal = SIZE_EXPAND_FILL
-	main_container.add_child(header_section)
-	
-	# Create left side of the header
-	var left_header = VBoxContainer.new()
-	left_header.size_flags_horizontal = SIZE_EXPAND_FILL
-	header_section.add_child(left_header)
-	
-	# Add title
-	var title = Label.new()
-	title.text = "SUBMARINE UPGRADES"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title.add_theme_font_size_override("font_size", 28)
-	title.add_theme_color_override("font_color", Color(1, 1, 1)) # White
-	left_header.add_child(title)
-	
-	# Add subtitle
-	var subtitle = Label.new()
-	subtitle.text = "Select upgrades to enhance your submarine"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	subtitle.add_theme_font_size_override("font_size", 16)
-	subtitle.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9)) # Light blue-white
-	left_header.add_child(subtitle)
-	
-	# Create right side of the header for money display
-	var right_header = VBoxContainer.new()
-	right_header.size_flags_horizontal = SIZE_SHRINK_END
-	right_header.size_flags_vertical = SIZE_SHRINK_CENTER
-	header_section.add_child(right_header)
-	
-	# Create a stylish money display panel
-	var money_panel = PanelContainer.new()
-	var money_style = StyleBoxFlat.new()
-	money_style.bg_color = Color(0.05, 0.15, 0.3, 0.7) # Darker blue
-	money_style.set_border_width_all(2)
-	money_style.border_color = Color(0.7, 0.7, 0.2) # Gold border
-	money_style.set_corner_radius_all(8)
-	money_panel.add_theme_stylebox_override("panel", money_style)
-	money_panel.size_flags_horizontal = SIZE_SHRINK_END
-	right_header.add_child(money_panel)
-	
-	var money_margin = MarginContainer.new()
-	money_margin.add_theme_constant_override("margin_left", 15)
-	money_margin.add_theme_constant_override("margin_right", 15)
-	money_margin.add_theme_constant_override("margin_top", 8)
-	money_margin.add_theme_constant_override("margin_bottom", 8)
-	money_panel.add_child(money_margin)
-	
-	money_label = Label.new()
-	money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	money_label.add_theme_font_size_override("font_size", 20)
-	money_label.add_theme_color_override("font_color", Color(1, 1, 0.7)) # Light yellow
-	# Set initial text (function defined below)
-	money_margin.add_child(money_label)
-	update_money_display()
-	
-	# Add some spacing after header
-	var spacer = Control.new()
-	spacer.custom_minimum_size = Vector2(0, 20)
-	main_container.add_child(spacer)
-	
-	# Create the main grid layout for all categories side by side
-	var main_grid = HBoxContainer.new()
-	main_grid.size_flags_horizontal = SIZE_EXPAND_FILL
-	main_grid.size_flags_vertical = SIZE_EXPAND_FILL
-	main_grid.add_theme_constant_override("separation", 20) # More space between columns
-	main_container.add_child(main_grid)
-	
-	# Create columns for each category
-	for category_name in categories:
-		var category_column = create_category_column(category_name, categories[category_name])
-		main_grid.add_child(category_column)
+	_setup_upgrade_menu()
 
 func create_category_column(category_name, upgrade_keys):
 	# Create a container for this category
@@ -277,8 +174,8 @@ func create_upgrade_button(key):
 
 		if i < current_level:
 			# Filled level
-			indicator_style.bg_color = Color(0.3, 0.7, 1.0) # Bright blue for achieved levels
-		
+			indicator_style.bg_color = Color(0.3, 0.7, 1.0)
+	
 		indicator_style.set_corner_radius_all(3)
 		level_indicator.add_theme_stylebox_override("panel", indicator_style)
 		
@@ -532,6 +429,136 @@ func refresh_all_upgrades():
 	for key in buttons:
 		update_button_affordability(key)
 
+func rebuild_upgrade_menu():
+	"""Completely rebuild the upgrade menu UI from scratch"""
+	print("Rebuilding upgrade menu UI completely")
+	
+	# Clear all existing children
+	for child in get_children():
+		child.queue_free()
+	
+	# Clear buttons dictionary
+	buttons.clear()
+	
+	# Wait a frame for the children to be freed
+	await get_tree().process_frame
+	
+	# Recreate all UI elements (same as _ready())
+	_setup_upgrade_menu()
+
+func _setup_upgrade_menu():
+	"""Setup the upgrade menu UI (extracted from _ready())"""
+	# Add to group for easier reference
+	add_to_group("upgrades_menu")
+	
+	# Make the panel significantly bigger to display all upgrades without scrolling
+	custom_minimum_size = Vector2(900, 570)
+	
+	# Apply a style to the panel itself instead of adding a background image
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.05, 0.2, 0.3, 0.95) # Deep blue with high opacity
+	panel_style.set_border_width_all(3)
+	panel_style.border_color = Color(0.2, 0.4, 0.7)
+	panel_style.set_corner_radius_all(12)
+	add_theme_stylebox_override("panel", panel_style)
+	
+	# Create main container
+	var main_container = VBoxContainer.new()
+	main_container.size_flags_horizontal = SIZE_EXPAND_FILL
+	main_container.size_flags_vertical = SIZE_EXPAND_FILL
+	
+	# Add margin to the container for better padding
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 30)
+	margin.add_theme_constant_override("margin_right", 30)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
+	margin.size_flags_horizontal = SIZE_EXPAND_FILL
+	margin.size_flags_vertical = SIZE_EXPAND_FILL
+	margin.add_child(main_container)
+	add_child(margin)
+	
+	# Header section with title and money
+	var header_section = HBoxContainer.new()
+	header_section.size_flags_horizontal = SIZE_EXPAND_FILL
+	main_container.add_child(header_section)
+	
+	# Create left side of the header
+	var left_header = VBoxContainer.new()
+	left_header.size_flags_horizontal = SIZE_EXPAND_FILL
+	header_section.add_child(left_header)
+	
+	# Add title
+	var title = Label.new()
+	title.text = "SUBMARINE UPGRADES"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(1, 1, 1)) # White
+	left_header.add_child(title)
+	
+	# Add subtitle
+	var subtitle = Label.new()
+	subtitle.text = "Select upgrades to enhance your submarine"
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	subtitle.add_theme_font_size_override("font_size", 16)
+	subtitle.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9)) # Light blue-white
+	left_header.add_child(subtitle)
+	
+	# Create right side of the header for money display
+	var right_header = VBoxContainer.new()
+	right_header.size_flags_horizontal = SIZE_SHRINK_END
+	right_header.size_flags_vertical = SIZE_SHRINK_CENTER
+	header_section.add_child(right_header)
+	
+	# Create a stylish money display panel
+	var money_panel = PanelContainer.new()
+	var money_style = StyleBoxFlat.new()
+	money_style.bg_color = Color(0.05, 0.15, 0.3, 0.7) # Darker blue
+	money_style.set_border_width_all(2)
+	money_style.border_color = Color(0.7, 0.7, 0.2) # Gold border
+	money_style.set_corner_radius_all(8)
+	money_panel.add_theme_stylebox_override("panel", money_style)
+	right_header.add_child(money_panel)
+	
+	# Add margin to money panel
+	var money_margin = MarginContainer.new()
+	money_margin.add_theme_constant_override("margin_left", 15)
+	money_margin.add_theme_constant_override("margin_right", 15)
+	money_margin.add_theme_constant_override("margin_top", 10)
+	money_margin.add_theme_constant_override("margin_bottom", 10)
+	money_panel.add_child(money_margin)
+	
+	# Add money label
+	money_label = Label.new()
+	money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	money_label.add_theme_font_size_override("font_size", 18)
+	money_label.add_theme_color_override("font_color", Color(1, 1, 0.2)) # Gold color
+	money_margin.add_child(money_label)
+	
+	# Add spacing after header
+	var header_spacer = Control.new()
+	header_spacer.custom_minimum_size = Vector2(0, 20)
+	main_container.add_child(header_spacer)
+	
+	# Create main content area with three columns
+	var content_container = HBoxContainer.new()
+	content_container.size_flags_horizontal = SIZE_EXPAND_FILL
+	content_container.size_flags_vertical = SIZE_EXPAND_FILL
+	content_container.add_theme_constant_override("separation", 20)
+	main_container.add_child(content_container)
+	
+	# Create categories
+	var equipment_column = create_category_column("EQUIPMENT", categories["EQUIPMENT"])
+	var performance_column = create_category_column("PERFORMANCE", categories["PERFORMANCE"])
+	var utility_column = create_category_column("UTILITY", categories["UTILITY"])
+	
+	content_container.add_child(equipment_column)
+	content_container.add_child(performance_column)
+	content_container.add_child(utility_column)
+	
+	# Initialize money display
+	update_money_display()
+
 # Add variable to track visibility changes
 var was_visible = false
 var man_override = false
@@ -543,6 +570,12 @@ func close_upgrade_menu():
 	was_visible = false
 
 func _process(_delta):
+	# Force hide upgrade menu during intro mission
+	if GameState.is_intro_mission_active():
+		visible = false
+		was_visible = false
+		return
+	
 	if GameState.isDocked:
 		if !man_override:
 			visible = true

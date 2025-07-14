@@ -33,6 +33,10 @@ func connect_to_gamestate(state):
 
 # Called when inventory is updated
 func _on_inventory_updated():
+	# Skip achievements during intro mission
+	if GameState.is_intro_mission_active():
+		return
+	
 	#print("Achievement System: Inventory updated, checking for new fish")
 	# Check for new fish catches
 	for item in GameState.inventory.items:
@@ -82,6 +86,10 @@ func _on_inventory_updated():
 
 # Called when a fish is brought to the surface
 func record_fish_surface(fish_type_id):
+	# Skip achievements during intro mission
+	if GameState.is_intro_mission_active():
+		return
+	
 	# Ensure fish_type_id is an integer
 	if typeof(fish_type_id) != TYPE_INT:
 		if str(fish_type_id).is_valid_int():
