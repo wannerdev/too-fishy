@@ -4,6 +4,7 @@ signal inventory_updated
 
 #DEFINITIONS
 enum Stage {SURFACE, DEEP, DEEPER, SUPERDEEP, HOT, LAVA, VOID}
+enum GameMode {NORMAL, INTRO_MISSION}
 var depthStageMap = {
 	0: Stage.SURFACE,
 	100: Stage.DEEP,
@@ -83,9 +84,19 @@ var inventory: Inv = Inv.new()
 
 var playerInStage: Stage = Stage.SURFACE
 
+# Intro mission state
+var current_game_mode: GameMode = GameMode.NORMAL
+var is_first_time_player = true
+var intro_mission_completed = false
+var friend_death_position: Vector3 = Vector3.ZERO
+
 func _ready():
 	# Connect to inventory's methods to emit the inventory_updated signal
 	inventory.connect_signals_to_gamestate(self)
+	
+	#  automatically start intro mission for first-time players
+	if is_first_time_player and not intro_mission_completed:
+		start_intro_mission()
 
 func setDepth(d: int):
 	depth = d
@@ -127,3 +138,54 @@ func notify_inventory_updated():
 func is_boss_defeated() -> bool:
 	# Boss is defeated when the WIN dialog stage has been reached
 	return Boss.boss_dialog_section == Boss.BossDialogSections.WIN
+
+# Intro mission functions
+func start_intro_mission():
+	print("Starting intro mission")
+	current_game_mode = GameMode.INTRO_MISSION
+	is_first_time_player = true
+	intro_mission_completed = false
+	
+	# Reset game state properly for intro mission
+	death_screen = false
+	paused = false
+	health = 100
+	
+	# Start in hot zone where friend will spawn
+	playerInStage = Stage.HOT
+	depth = 450  # Starting depth in hot zone (matches spawn position)
+	# Configure friend upgrades
+	setup_friend_upgrades()
+	
+
+func complete_intro_mission(death_position: Vector3):
+	print("Completing intro mission at position: ", death_position)
+	friend_death_position = death_position
+	intro_mission_completed = true
+	current_game_mode = GameMode.NORMAL
+	is_first_time_player = false
+	# Reset upgrades to 0 for normal player
+	reset_upgrades()
+	# Spawn player back at surface
+	playerInStage = Stage.SURFACE
+	depth = 0
+
+func reset_upgrades():
+	for upgrade1 in upgrades:
+		upgrades[upgrade1] = 0
+
+func is_intro_mission_active() -> bool:
+	return current_game_mode == GameMode.INTRO_MISSION
+
+func should_disable_barriers() -> bool:
+	return is_intro_mission_active()
+
+func setup_friend_upgrades():
+	for upgrade2 in upgrades:
+		if upgrade2 == Upgrade.PICKAXE_UNLOCKED:
+			upgrades[upgrade2] = 0  # Friend has no pickaxe
+		else:
+			upgrades[upgrade2] = maxUpgrades[upgrade2]  # Max level for everything else
+	
+	# Set friend to have lots of money for the intro
+	money = 1000

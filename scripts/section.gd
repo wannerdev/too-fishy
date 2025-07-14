@@ -96,6 +96,11 @@ func spawn_fish(spawn_all: bool = false):
 
 # Function to add destructible barriers at section borders
 func add_barrier_boxes():
+	# Disable barriers during intro mission
+	if GameState.should_disable_barriers():
+		print("Barriers disabled during intro mission")
+		return
+	
 	# Check if this is a transition that should have barriers
 	var should_add_barriers = false
 	var barrier_health = 1

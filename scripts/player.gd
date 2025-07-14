@@ -482,6 +482,15 @@ func process_dock(delta):
 func process_depth_effects(delta):
 	GameState.headroom = ((GameState.upgrades[GameState.Upgrade.DEPTH_RESISTANCE] + 1) * 100 - GameState.depth)
 	
+	# Skip depth damage during intro mission setup or if player can't be hurt
+	if GameState.is_intro_mission_active() and not can_be_hurt:
+		return
+	
+	# Extra safety: Don't let health drop below 1 during intro mission setup
+	if GameState.is_intro_mission_active() and GameState.health < 1:
+		GameState.health = 100
+		print("Health safety reset during intro mission setup")
+	
 	# Get reference to damage effects
 	var ui_node = get_node("/root/Node3D/UI")
 	var damage_effects = null
@@ -510,6 +519,10 @@ func process_depth_effects(delta):
 		process_lava_damage(delta)
 
 func process_lava_damage(delta):
+	# Skip lava damage during intro mission setup or if player can't be hurt
+	if GameState.is_intro_mission_active() and not can_be_hurt:
+		return
+	
 	# Lava damage: 10 damage per second when in lava stage
 	var lava_damage_per_second = 10.0
 	GameState.health -= lava_damage_per_second * delta
@@ -537,7 +550,29 @@ func process_lava_damage(delta):
 
 func process_death():
 	if GameState.health <= 0:
+		print("Player death detected - Health: ", GameState.health, " Intro mission active: ", GameState.is_intro_mission_active())
+		
+		# Don't process death if player is invulnerable during intro mission setup
+		if GameState.is_intro_mission_active() and not can_be_hurt:
+			print("Death processing skipped - player is invulnerable during intro mission setup")
+			GameState.health = 100  # Reset health to safe value
+			return
+		
 		sound_player.play_sound("ughhh")
+		
+		# Handle friend death during intro mission
+		if GameState.is_intro_mission_active():
+			print("Friend has died during intro mission - completing intro mission")
+			# Prevent death screen from showing during intro mission
+			GameState.death_screen = false
+			GameState.paused = false
+			# Get the level system to handle the transition
+			var level_node = get_node("/root/Node3D/Level")
+			if level_node:
+				level_node.switch_back_to_original_player()
+			return
+		
+		print("Setting death screen to true")
 		GameState.death_screen = true
 		
 		# If inventory save upgrade is purchased, keep inventory items
@@ -730,3 +765,108 @@ func _on_lava_area_body_entered(body):
 func _on_lava_area_body_exited(body):
 	if body == self: # Make sure it's the player exiting
 		is_in_lava_area = false
+
+# Submarine model switching for intro mission
+var friend_submarine_material = null
+var normal_submarine_material = null
+var is_friend_submarine = false
+
+func _create_friend_submarine_material():
+	if friend_submarine_material == null:
+		friend_submarine_material = StandardMaterial3D.new()
+		friend_submarine_material.albedo_color = Color(1, 1, 0.152941, 1)
+		# Load the friend submarine textures
+		friend_submarine_material.albedo_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_BaseColor.png")
+		friend_submarine_material.metallic_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_Metallic.png")
+		friend_submarine_material.roughness_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_Roughness.png")
+		friend_submarine_material.normal_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_Normal.png")
+		friend_submarine_material.height_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_Height.png")
+
+func switch_to_friend_submarine():
+	if is_friend_submarine:
+		return
+		
+	print("Switching to friend submarine appearance")
+	is_friend_submarine = true
+	
+	# Store original material if we haven't already
+	if normal_submarine_material == null:
+		normal_submarine_material = $Pivot/SmFishSubmarine.get_surface_override_material(0)
+	
+	# Create friend material if needed
+	_create_friend_submarine_material()
+	
+	# Apply friend submarine material
+	$Pivot/SmFishSubmarine.set_surface_override_material(0, friend_submarine_material)
+	
+	# Switch to friend submarine lighting (OmniLight3D instead of SpotLight3D)
+	if has_node("Pivot/SmFishSubmarine/UnlockableLamp"):
+		var spot_light = $Pivot/SmFishSubmarine/UnlockableLamp
+		spot_light.visible = false
+		
+		# Create OmniLight3D for friend submarine
+		var omni_light = OmniLight3D.new()
+		omni_light.name = "FriendLamp"
+		omni_light.light_color = Color(1, 1, 0.8, 1)
+		omni_light.light_energy = 1.0
+		omni_light.omni_range = 8.0
+		omni_light.visible = true
+		$Pivot/SmFishSubmarine.add_child(omni_light)
+	
+	# Set friend submarine upgrades (all maxed except pickaxe)
+	var original_upgrades = GameState.upgrades.duplicate()
+	for upgrade in GameState.Upgrade.values():
+		if upgrade != GameState.Upgrade.PICKAXE_UNLOCKED:
+			GameState.upgrades[upgrade] = GameState.maxUpgrades[upgrade]
+	
+	# Set money to $10,000
+	GameState.money = 10000
+	
+	# Give friend full health and extra durability for intro mission
+	GameState.health = 100
+	
+	print("Friend submarine upgrades applied:")
+	print("  Depth resistance: ", GameState.upgrades[GameState.Upgrade.DEPTH_RESISTANCE])
+	print("  Health set to: ", GameState.health)
+	print("  Headroom at depth ", GameState.depth, ": ", ((GameState.upgrades[GameState.Upgrade.DEPTH_RESISTANCE] + 1) * 100 - GameState.depth))
+	
+	# Make AK47s visible immediately since friend has all upgrades
+	if has_node("Pivot/SmFishSubmarine/ak47_0406195124_texture"):
+		$Pivot/SmFishSubmarine/ak47_0406195124_texture.visible = true
+	if has_node("Pivot/SmFishSubmarine/ak47_"):
+		$Pivot/SmFishSubmarine/ak47_.visible = true
+		# Set shared ammo for dual AK47
+		if has_node("Pivot/SmFishSubmarine/ak47_0406195124_texture"):
+			$Pivot/SmFishSubmarine/ak47_0406195124_texture.shared_ammo = $Pivot/SmFishSubmarine/ak47_0406195124_texture.get_max_ammo()
+	
+	print("Friend submarine appearance activated with AK47s visible")
+
+func switch_to_normal_submarine():
+	if not is_friend_submarine:
+		return
+		
+	print("Switching to normal submarine appearance")
+	is_friend_submarine = false
+	
+	# Restore original submarine material
+	if normal_submarine_material != null:
+		$Pivot/SmFishSubmarine.set_surface_override_material(0, normal_submarine_material)
+	
+	# Switch back to normal submarine lighting
+	if has_node("Pivot/SmFishSubmarine/FriendLamp"):
+		$Pivot/SmFishSubmarine/FriendLamp.queue_free()
+	
+	if has_node("Pivot/SmFishSubmarine/UnlockableLamp"):
+		var spot_light = $Pivot/SmFishSubmarine/UnlockableLamp
+		spot_light.visible = GameState.upgrades[GameState.Upgrade.LAMP_UNLOCKED] > 0
+	
+	# Hide AK47s since original player doesn't have those upgrades
+	if has_node("Pivot/SmFishSubmarine/ak47_0406195124_texture"):
+		$Pivot/SmFishSubmarine/ak47_0406195124_texture.visible = false
+	if has_node("Pivot/SmFishSubmarine/ak47_"):
+		$Pivot/SmFishSubmarine/ak47_.visible = false
+	
+	# Reset upgrades to normal (will be handled by GameState.complete_intro_mission)
+	# No need to reset here since that function handles the upgrade reset
+	
+	print("Normal submarine appearance restored")

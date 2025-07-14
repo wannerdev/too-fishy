@@ -125,7 +125,7 @@ size = Vector3(4.19824, 19.4489, 13.8901)
 transform = Transform3D(0.94702, 0.320556, -0.0199305, -0.0267635, 0.140602, 0.989704, 0.320058, -0.936736, 0.141732, -6.47082, 1.04463, 15.1856)
 
 [node name="CharacterBody3D" parent="." instance=ExtResource("4_pu3yx")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, -0.177934, -0.33)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, -450, 0.33)
 speed_vertical = 0.5
 speed_horizontal = 0.5
 

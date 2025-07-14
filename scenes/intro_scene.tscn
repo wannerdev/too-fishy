@@ -1,0 +1,42 @@
+[gd_scene load_steps=4 format=3 uid="uid://7yss8i73p5j1"]
+
+[ext_resource type="PackedScene" uid="uid://xqds4eqa4fys" path="res://scenes/section.tscn" id="1_intro"]
+[ext_resource type="Material" uid="uid://bcrl1b5ffaqsx" path="res://materials/backgrounds/bg_lava_to_void.tres" id="3_intro"]
+[ext_resource type="Material" uid="uid://uqjqudopakjk" path="res://materials/backgrounds/bg_lava.tres" id="4_intro"]
+
+[node name="IntroScene" type="Node3D"]
+
+[node name="TransitionSection" parent="." instance=ExtResource("1_intro")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -425, 0)
+sectionType = 4
+lastSectionType = 3
+background_mat = ExtResource("3_intro")
+add_destructible_barriers = false
+
+[node name="HotZoneSection1" parent="." instance=ExtResource("1_intro")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -450, 0)
+sectionType = 4
+lastSectionType = 4
+background_mat = ExtResource("4_intro")
+add_destructible_barriers = false
+
+[node name="HotZoneSection2" parent="." instance=ExtResource("1_intro")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -475, 0)
+sectionType = 4
+lastSectionType = 4
+background_mat = ExtResource("4_intro")
+add_destructible_barriers = false
+
+[node name="LavaZoneSection1" parent="." instance=ExtResource("1_intro")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -500, 0)
+sectionType = 5
+lastSectionType = 4
+background_mat = ExtResource("4_intro")
+add_destructible_barriers = false
+
+[node name="LavaZoneSection2" parent="." instance=ExtResource("1_intro")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -525, 0)
+sectionType = 5
+lastSectionType = 5
+background_mat = ExtResource("4_intro")
+add_destructible_barriers = false

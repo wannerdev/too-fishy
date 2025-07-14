@@ -95,7 +95,7 @@ func setup(items: Array):
 		var type_int = int(stored_type)
 		if type_int >= 0 and type_int < FishesConfig.FishType.size():
 			fish_type = type_int
-			print("Successfully converted stored fish type: ", type_int, " (", FishesConfig.FishType.keys()[type_int], ")")
+			#print("Successfully converted stored fish type: ", type_int, " (", FishesConfig.FishType.keys()[type_int], ")")
 		else:
 			print("ERROR: Invalid fish type number: ", type_int)
 	else:
@@ -105,7 +105,7 @@ func setup(items: Array):
 		for i in range(enum_keys.size()):
 			if enum_keys[i] == stored_type:
 				fish_type = i
-				print("Successfully converted stored fish type: ", stored_type, " -> ", i)
+				#print("Successfully converted stored fish type: ", stored_type, " -> ", i)
 				found = true
 				break
 		if not found:

@@ -25,6 +25,13 @@ func _physics_process(delta):
 	if player == null:
 		return
 	
+	# Don't attack the player if intro mission is completed
+	if GameState.intro_mission_completed:
+		# Boss waits for player to come back
+		velocity = Vector3.ZERO
+		state = BossStates.PREPARING
+		return
+	
 	# Check if player is within range
 	var distance_from_spawn = abs(player.global_position.y - spawn_position.y)
 	is_player_in_range = distance_from_spawn <= max_range_from_spawn
