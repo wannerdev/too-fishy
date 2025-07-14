@@ -25,9 +25,9 @@ func _physics_process(delta):
 	if player == null:
 		return
 	
-	# Don't attack the player if intro mission is completed
-	if GameState.intro_mission_completed:
-		# Boss waits for player to come back
+	# Don't attack the player during intro mission (only during the mission itself)
+	if GameState.is_intro():
+		# Boss waits during intro mission
 		velocity = Vector3.ZERO
 		state = BossStates.PREPARING
 		return

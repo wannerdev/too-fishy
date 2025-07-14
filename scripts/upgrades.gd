@@ -571,7 +571,7 @@ func close_upgrade_menu():
 
 func _process(_delta):
 	# Force hide upgrade menu during intro mission
-	if GameState.is_intro_mission_active():
+	if GameState.is_intro():
 		visible = false
 		was_visible = false
 		return

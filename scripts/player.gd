@@ -459,7 +459,7 @@ func _on_timer_timeout():
 
 func process_dock(delta):
 	# Skip docking during intro mission
-	if GameState.is_intro_mission_active():
+	if GameState.is_intro():
 		GameState.isDocked = false
 		return
 	
@@ -562,11 +562,10 @@ func process_lava_damage(delta):
 
 func process_death():
 	if GameState.health <= 0:
-		print("Player death detected - Health: ", GameState.health, " Intro mission active: ", GameState.is_intro_mission_active())
+		print("Player death detected - Health: ", GameState.health, " Intro mission active: ", GameState.is_intro())
 		
 		# Handle friend death during intro mission
-		if GameState.is_intro_mission_active():
-			print("Friend has died during intro mission - completing intro mission")
+		if GameState.is_intro():
 			# Prevent death screen from showing during intro mission
 			GameState.death_screen = false
 			GameState.paused = false

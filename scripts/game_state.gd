@@ -85,6 +85,7 @@ var inventory: Inv = Inv.new()
 var playerInStage: Stage = Stage.SURFACE
 
 # Intro mission state
+@export var enable_intro_mission: bool = false  # Flag to control whether to start intro mission
 var current_game_mode: GameMode = GameMode.NORMAL
 var is_first_time_player = true
 var intro_mission_completed = false
@@ -94,13 +95,16 @@ func _ready():
 	# Connect to inventory's methods to emit the inventory_updated signal
 	inventory.connect_signals_to_gamestate(self)
 	
-	#  automatically start intro mission for first-time players
-	if is_first_time_player and not intro_mission_completed:
+	#  automatically start intro mission for first-time players (if enabled)
+	if enable_intro_mission and is_first_time_player and not intro_mission_completed:
 		start_intro_mission()
+	else:
+		# If intro mission is disabled, initialize normal mode
+		start_normal_mode()
 
 func _process(_delta):
 	# Ensure game is not paused during intro mission
-	if is_intro_mission_active():
+	if is_intro():
 		paused = false
 		get_tree().paused = false
 		isDocked = false
@@ -111,7 +115,7 @@ func setDepth(d: int):
 		maxDepthReached = d
 	
 	# During intro mission, force stage to be HOT until mission is complete
-	if is_intro_mission_active():
+	if is_intro():
 		# Keep player in HOT stage during intro mission
 		playerInStage = Stage.HOT
 		return
@@ -187,8 +191,6 @@ func start_intro_mission():
 	print("Intro mission setup complete")
 
 func force_hide_death_ui():
-	"""Force hide death screen and reset all UI states"""
-	print("Forcing death UI to hide during intro mission")
 	death_screen = false
 	paused = false
 	isDocked = false  # Make sure player is not docked
@@ -200,31 +202,26 @@ func force_hide_death_ui():
 		var death_screen_node = ui_node.find_child("DeathScreen", true, false)
 		if death_screen_node:
 			death_screen_node.visible = false
-			print("Death screen hidden")
 		
 		# Hide upgrade menu specifically
 		var upgrade_menu = ui_node.find_child("Upgrades", true, false)
 		if upgrade_menu:
 			upgrade_menu.visible = false
-			print("Upgrade menu hidden")
 		
 		# Hide inventory menu if it's open
 		var inventory_menu = ui_node.find_child("InventoryMenu", true, false)
 		if inventory_menu:
 			inventory_menu.visible = false
-			print("Inventory menu hidden")
 		
 		# Hide pause menu if it's open
 		var pause_menu = ui_node.find_child("PauseMenu", true, false)
 		if pause_menu:
 			pause_menu.visible = false
-			print("Pause menu hidden")
 		
 		# Hide achievement UI during intro mission
 		var achievement_ui = ui_node.find_child("AchievementUI", true, false)
 		if achievement_ui:
 			achievement_ui.visible = false
-			print("Achievement UI hidden")
 	
 	# Reset tree pause state
 	get_tree().paused = false
@@ -236,6 +233,10 @@ func complete_intro_mission(death_position: Vector3):
 	intro_mission_completed = true
 	# Reset upgrades to 0 for normal player
 	reset_upgrades()
+	# Reset money to starting amount
+	money = 25
+	# Reset max depth tracker so player starts fresh
+	maxDepthReached = 0
 	current_game_mode = GameMode.NORMAL
 	is_first_time_player = false
 	# Spawn player back at surface
@@ -249,11 +250,44 @@ func reset_upgrades():
 	for upgrade_key in upgrades:
 		upgrades[upgrade_key] = 0
 
-func is_intro_mission_active() -> bool:
+func is_intro() -> bool:
 	return current_game_mode == GameMode.INTRO_MISSION
 
-func should_disable_barriers() -> bool:
-	return is_intro_mission_active()
+func start_normal_mode():
+	print("Starting normal mode")
+	current_game_mode = GameMode.NORMAL
+	is_first_time_player = false
+	intro_mission_completed = true  # Intro mission is skipped in normal mode
+	
+	# Initialize normal game state
+	death_screen = false
+	paused = false
+	health = 100
+	isDocked = false
+	
+	# Set player to surface level
+	playerInStage = Stage.SURFACE
+	depth = 0
+	maxDepthReached = 0
+	
+	# Initialize Boss system for normal mode
+	Boss.boss_spawned = false
+	Boss.boss_defeated_permanently = false
+	Boss.boss_dialog_displayed = true  # Enable tutorial dialogs for normal gameplay
+	Boss.boss_dialog_section = Boss.BossDialogSections.TUTORIAL1
+	Boss.boss_dialog_index = 0
+	Boss.boss_health = Boss.boss_max_health
+	
+	# Wait for player node to be available, then set position to surface
+	await get_tree().process_frame
+	if player_node:
+		player_node.position = Vector3(-8, 0, 0.33)  # Surface position
+	
+	# Reset tree pause state
+	get_tree().paused = false
+	
+	print("Normal mode setup complete")
+
 
 func setup_friend_upgrades():
 	for upgrade2 in upgrades:
@@ -273,15 +307,12 @@ func restore_ui_after_intro_mission():
 		var achievement_ui = ui_node.find_child("AchievementUI", true, false)
 		if achievement_ui:
 			achievement_ui.visible = true
-			print("Achievement UI restored")
 		
 		# Find and completely rebuild upgrade menu to show all buttons
 		var upgrade_menu = ui_node.find_child("Upgrades", true, false)
 		if upgrade_menu and upgrade_menu.has_method("rebuild_upgrade_menu"):
 			upgrade_menu.rebuild_upgrade_menu()
-			print("Upgrade menu rebuilt - all buttons should now be visible")
 		elif upgrade_menu and upgrade_menu.has_method("refresh_all_upgrades"):
 			upgrade_menu.refresh_all_upgrades()
-			print("Upgrade menu refreshed (fallback method)")
 		else:
 			print("Upgrade menu not found or missing rebuild method")

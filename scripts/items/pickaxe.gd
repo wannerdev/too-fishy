@@ -43,7 +43,7 @@ func activate_pickaxe():
 	# Aktiviert die Pickaxe, wenn das Upgrade gekauft wurde
 	visible = true
 	set_physics_process(true)
-	print("Pickaxe activated!")
+	#print("Pickaxe activated!")
 
 func _process(delta):
 	if GameState.upgrades[GameState.Upgrade.PICKAXE_UNLOCKED] != 1:

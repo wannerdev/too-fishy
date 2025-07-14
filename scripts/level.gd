@@ -18,7 +18,7 @@ func _process(_delta: float) -> void:
 	snappedDepth = snapped(player.position.y, 1) * -1
 	
 	# During intro mission, ensure camera environment is set to HOT zone
-	if GameState.is_intro_mission_active():
+	if GameState.is_intro():
 		# Force camera environment to hot zone
 		var camera = player.get_node("Camera3D")
 		if camera and camera.has_method("change_section_environment"):
@@ -34,7 +34,7 @@ func _process(_delta: float) -> void:
 	
 func _ready():
 	# Check if intro mission should spawn special sections
-	if GameState.is_intro_mission_active():
+	if GameState.is_intro():
 		spawn_intro_mission_sections()
 
 func spawn_intro_mission_sections():
@@ -62,6 +62,7 @@ func spawn_intro_mission_sections():
 	
 	# Spawn PreBarrier section at y=-400
 	var pre_barrier_section = section.instantiate()
+	pre_barrier_section.name = "IntroSection_PreBarrier_400m"
 	pre_barrier_section.position.y = -400
 	pre_barrier_section.sectionType = GameState.Stage.SUPERDEEP
 	pre_barrier_section.lastSectionType = GameState.Stage.SUPERDEEP
@@ -70,6 +71,7 @@ func spawn_intro_mission_sections():
 	
 	# Spawn Transition section at y=-425
 	var transition_section = section.instantiate()
+	transition_section.name = "IntroSection_Transition_425m"
 	transition_section.position.y = -425
 	transition_section.sectionType = GameState.Stage.HOT
 	transition_section.lastSectionType = GameState.Stage.SUPERDEEP
@@ -78,6 +80,7 @@ func spawn_intro_mission_sections():
 	
 	# Spawn HotZone sections at y=-450 and y=-475
 	var hot_zone_section1 = section.instantiate()
+	hot_zone_section1.name = "IntroSection_HotZone_450m"
 	hot_zone_section1.position.y = -450
 	hot_zone_section1.sectionType = GameState.Stage.HOT
 	hot_zone_section1.lastSectionType = GameState.Stage.HOT
@@ -85,6 +88,7 @@ func spawn_intro_mission_sections():
 	add_child(hot_zone_section1)
 	
 	var hot_zone_section2 = section.instantiate()
+	hot_zone_section2.name = "IntroSection_HotZone_475m"
 	hot_zone_section2.position.y = -475
 	hot_zone_section2.sectionType = GameState.Stage.HOT
 	hot_zone_section2.lastSectionType = GameState.Stage.HOT
@@ -93,6 +97,7 @@ func spawn_intro_mission_sections():
 	
 	# Spawn Lava sections at y=-500 and y=-525
 	var lava_zone_section1 = section.instantiate()
+	lava_zone_section1.name = "IntroSection_LavaZone_500m"
 	lava_zone_section1.position.y = -500
 	lava_zone_section1.sectionType = GameState.Stage.LAVA
 	lava_zone_section1.lastSectionType = GameState.Stage.HOT
@@ -100,6 +105,7 @@ func spawn_intro_mission_sections():
 	add_child(lava_zone_section1)
 	
 	var lava_zone_section2 = section.instantiate()
+	lava_zone_section2.name = "IntroSection_LavaZone_525m"
 	lava_zone_section2.position.y = -525
 	lava_zone_section2.sectionType = GameState.Stage.LAVA
 	lava_zone_section2.lastSectionType = GameState.Stage.LAVA
@@ -118,6 +124,12 @@ func spawnNewSection(mPosition: float):
 	i = min(i, GameState.depthStageMap.keys()[len(GameState.depthStageMap.keys())-1])
 	newSection.sectionType = GameState.depthStageMap[i]
 	newSection.lastSectionType = last_section_type
+	
+	# Give section a meaningful name based on its type and depth
+	var depth_meters = int(abs(mPosition))
+	var stage_name = GameState.Stage.keys()[GameState.depthStageMap[i]]
+	newSection.name = "Section_%s_%dm" % [stage_name, depth_meters]
+	
 	lastSpawned = mPosition
 	GameState.fishes_lower_boarder = lastSpawned - sectionHeight/2 - 1
 	if mPosition <= -50:
@@ -128,6 +140,7 @@ func spawnNewSection(mPosition: float):
 func spawnBoss(mPosition: float):
 	print("Spawn boss", mPosition)
 	var spawned_boss = boss.instantiate()
+	spawned_boss.name = "Boss_Blobfish_%dm" % int(abs(mPosition))
 	spawned_boss.position.y = mPosition
 	spawned_boss.position.z = -0.33
 	spawned_boss.position.x = -5
@@ -137,6 +150,7 @@ func spawnBoss(mPosition: float):
 	
 	mPosition = lastSpawned - sectionHeight
 	var bossSection = boss_section.instantiate()
+	bossSection.name = "BossSection_%dm" % int(abs(mPosition))
 	bossSection.position.y = mPosition
 	var i = snapped(-mPosition, 100)
 	
@@ -149,7 +163,7 @@ func spawnBoss(mPosition: float):
 
 func switch_back_to_original_player():
 	"""Handle friend death during intro mission and switch back to normal player"""
-	if not GameState.is_intro_mission_active():
+	if not GameState.is_intro():
 		return  # Not in intro mission, nothing to do
 	
 	print("Switching back to original player after friend death")
@@ -187,19 +201,26 @@ func switch_back_to_original_player():
 
 func remove_intro_mission_elements():
 	"""Remove intro mission specific elements"""
+	print("Removing intro mission elements...")
+	
 	# Remove invisible barrier
 	var barrier = get_node_or_null("InvisibleBarrier400m")
 	if barrier:
 		barrier.queue_free()
 		print("Removed invisible barrier")
 	
-	# Optional: Remove intro mission sections if they interfere
-	# We could keep them for continuity, but if they cause issues, uncomment below:
-	# for child in get_children():
-	#     if child.position.y <= -400 and child.position.y >= -525:
-	#         if child.has_method("setDepth"):  # This identifies it as a section
-	#             child.queue_free()
-	#             print("Removed intro mission section at y=", child.position.y)
+	# Remove all intro mission sections
+	var sections_to_remove = []
+	for child in get_children():
+		if child.name.begins_with("IntroSection_"):
+			sections_to_remove.append(child)
+	
+	for section in sections_to_remove:
+		print("Removing intro mission section: ", section.name)
+		section.queue_free()
+	
+	print("Removed %d intro mission sections" % sections_to_remove.size())
+	print("Intro mission elements cleanup complete")
 
 func restore_normal_death_processing():
 	"""Restore normal death processing to show upgrade menu"""

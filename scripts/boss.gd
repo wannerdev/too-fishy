@@ -50,7 +50,7 @@ func take_damage(amount):
 	emit_signal("boss_health_changed", boss_health)
 	
 	# Check for 50% health trigger during intro mission
-	if GameState.is_intro_mission_active() and boss_health <= (boss_max_health * 0.5):
+	if GameState.is_intro() and boss_health <= (boss_max_health * 0.5):
 		print("Boss reached 50% health during intro mission - completing intro mission")
 		# Complete the intro mission
 		var level_node = get_node_or_null("/root/Node3D/Level")

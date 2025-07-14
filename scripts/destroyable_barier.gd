@@ -29,7 +29,7 @@ func _ready():
 	collision_layer = 3 # Schon in der TSCN gesetzt
 	collision_mask = 3 # Schon in der TSCN gesetzt
 	add_to_group("abbaubare_objekte")
-	print("DestroyableBarrier bereit - Health:", current_health)
+	#print("DestroyableBarrier bereit - Health:", current_health)
 	
 	# Add area detection for player proximity
 	var area = Area3D.new()
