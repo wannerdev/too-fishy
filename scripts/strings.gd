@@ -39,7 +39,8 @@ var boss_dialog_lines = {
 	Boss.BossDialogSections.BOSS_KILLS_FRIEND: ["[color=#E0E0E0]Ohhhh, that was a mistake![/color]", "[color=#E0E0E0]*Splash*[/color]", "[color=#E0E0E0]Your friend is dead now![/color]"],
 	Boss.BossDialogSections.FRIEND_RESCUED: ["[color=#E0E0E0]Oh my god thank you! That [/color][color=#f21820ae]mind controlling blobfish[/color][color=#E0E0E0]!\nYou killed it![/color]", "[color=#E0E0E0]I thought I was a goner![/color]", "[color=#E0E0E0]I will follow you to the surface, I can't wait to get out of here![/color]"],
 	Boss.BossDialogSections.WIN: ["[color=#E0E0E0]You rescued your friend from the evil mind controlling blobfish![/color]", "[color=#E0E0E0]Congratulations, you beat our game. Feel free to keep fishing, the first game idea was created in Ludum dare 57.[/color]"],
-	Boss.BossDialogSections.BOSS_DEFEATED: ["[color=#E0E0E0]The mind-controlling blobfish has been killed![/color]", "[color=#E0E0E0]Thank you! Come get us, we will follow your lead![/color]"]
+	Boss.BossDialogSections.BOSS_DEFEATED: ["[color=#E0E0E0]The mind-controlling blobfish has been killed![/color]", "[color=#E0E0E0]Thank you! Come get us, we will follow your lead![/color]"],
+	Boss.BossDialogSections.POST_INTRO_RESCUE: ["[color=#E0E0E0]Noo the blobfish used some crazy mind control on you. You have to rescue your friend, but first you need to get a better submarine to be able to beat the blobfish.[/color]"]
 	}
 
 var upgradeDescriptions = {

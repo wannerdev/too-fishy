@@ -245,6 +245,9 @@ func complete_intro_mission(death_position: Vector3):
 	playerInStage = Stage.SURFACE
 	depth = 0
 	
+	# Trigger post-intro rescue dialog from John
+	Boss.setDialogStage(Boss.BossDialogSections.POST_INTRO_RESCUE)
+	
 	# Restore achievement UI visibility after intro mission
 	restore_ui_after_intro_mission()
 
