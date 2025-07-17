@@ -1,4 +1,4 @@
-[gd_scene load_steps=48 format=3 uid="uid://vg72e433ggrx"]
+[gd_scene load_steps=49 format=3 uid="uid://vg72e433ggrx"]
 
 [ext_resource type="Script" uid="uid://co3y5aldsk5jh" path="res://scripts/level.gd" id="3_c16ls"]
 [ext_resource type="PackedScene" uid="uid://xqds4eqa4fys" path="res://scenes/section.tscn" id="4_gubc5"]
@@ -28,7 +28,8 @@
 [ext_resource type="PackedScene" path="res://scenes/dock_3_remesh.tscn" id="23_k3g67"]
 [ext_resource type="Material" uid="uid://bupgrlcbs4i6k" path="res://materials/walls/veins.tres" id="24_k67gn"]
 [ext_resource type="PackedScene" uid="uid://peitbuaqkkcm" path="res://scenes/ui/achievement_panel.tscn" id="24_qr5t3"]
-[ext_resource type="PackedScene" path="res://scenes/ui/boss_health_bar.tscn" id="29_4bgka"]
+[ext_resource type="PackedScene" uid="uid://dflc3w5x5x5x5" path="res://scenes/ui/boss_health_bar.tscn" id="29_4bgka"]
+[ext_resource type="PackedScene" uid="uid://dqrgvgxo5q2tb" path="res://scenes/mind_control_zone.tscn" id="30_02d50"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6u1mn"]
 bg_color = Color(0, 0.360784, 0.831373, 1)
@@ -125,7 +126,7 @@ size = Vector3(4.19824, 19.4489, 13.8901)
 transform = Transform3D(0.94702, 0.320556, -0.0199305, -0.0267635, 0.140602, 0.989704, 0.320058, -0.936736, 0.141732, -6.47082, 1.04463, 15.1856)
 
 [node name="CharacterBody3D" parent="." instance=ExtResource("4_pu3yx")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, -450, 0.33)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, -450, 0)
 speed_vertical = 0.5
 speed_horizontal = 0.5
 
@@ -641,10 +642,10 @@ z_index = -2
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -2142.0
-offset_top = 95.0
-offset_right = -1944.62
-offset_bottom = 230.0
+offset_left = -1919.0
+offset_top = 87.0
+offset_right = -1721.62
+offset_bottom = 222.0
 grow_horizontal = 0
 
 [node name="LeftWall" type="StaticBody3D" parent="."]
@@ -687,7 +688,10 @@ transform = Transform3D(-0.8744, 0.469662, -0.121833, 0.246398, 0.213504, -0.945
 light_energy = 0.09
 
 [node name="BossHealthBar" parent="." instance=ExtResource("29_4bgka")]
-offset_left = -947.0
+offset_left = -753.0
 offset_top = -969.0
-offset_right = 950.0
+offset_right = 762.0
 offset_bottom = -939.0
+
+[node name="MindControlZone" parent="." instance=ExtResource("30_02d50")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14.7249, -8.686, 0.0622362)

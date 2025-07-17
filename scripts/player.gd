@@ -66,6 +66,9 @@ var shake_power = 2.0 # Exponent for screen shake based on trauma
 var max_shake_offset = 1.0 # Maximum movement from origin
 var max_shake_roll = 0.0 # Maximum rotation in radians (0 = disabled)
 
+# Mind control and external forces
+var external_forces = Vector3.ZERO
+
 # Achievement system reference
 var achievement_system = null
 
@@ -221,6 +224,12 @@ func movement(_delta: float):
 	if direction.y < 0 and position.y >= -0.2 and (Input.is_action_pressed("move_down") or touch_direction.y < 0):
 		target_velocity.y = target_velocity.y * 2.0 # Double speed when actively diving from surface
 	
+	# Apply external forces (like mind control pulling)
+	target_velocity += external_forces
+	
+	# Decay external forces over time
+	external_forces = external_forces.lerp(Vector3.ZERO, _delta * 5.0)
+	
 	target_velocity.z = 0
 	
 	# Set velocity directly without the lerp for more responsive control
@@ -229,7 +238,7 @@ func movement(_delta: float):
 	
 	velocity = target_velocity
 	move_and_slide()
-	position.z = 0.33
+#	position.z = 0.33
 
 
 func _physics_process(delta: float) -> void:
@@ -739,6 +748,18 @@ func _on_lava_area_body_entered(body):
 func _on_lava_area_body_exited(body):
 	if body == self: # Make sure it's the player exiting
 		is_in_lava_area = false
+
+# External force application method for mind control and other effects
+func apply_external_force(force: Vector3):
+	"""Apply an external force to the player (used by mind control zone, etc.)"""
+	external_forces += force
+
+func show_popup(text: String, color: Color = Color.WHITE):
+	"""Show a popup message above the player"""
+	if has_node("PopupSpawnPosition"):
+		PopupManager.show_popup(text, $PopupSpawnPosition.global_position, color)
+	else:
+		PopupManager.show_popup(text, global_position + Vector3(0, 1, 0), color)
 
 # Submarine model switching for intro mission
 var friend_submarine_material = null
