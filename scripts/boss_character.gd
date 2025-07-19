@@ -29,6 +29,9 @@ var active_zones: Array[Dictionary] = []  # [{zone: Node3D, spawn_time: float}]
 var zone_spawn_timer: float = 0.0
 var zones_spawned_this_fight: int = 0
 
+# Animation references
+@onready var animation_player: AnimationPlayer = $AnimationPlayer
+
 func _ready():
 	$Area3D.body_entered.connect(_on_body_entered)
 	add_to_group("boss")  # Add boss to group for projectile detection
@@ -53,6 +56,10 @@ func _physics_process(delta):
 		if state != BossStates.OUT_OF_RANGE:
 			state = BossStates.OUT_OF_RANGE
 			velocity = Vector3.ZERO
+			# Stop any ongoing animations when going out of range
+			if animation_player:
+				animation_player.stop()
+				reset_boss_appearance()
 			# Deactivate all zones when out of range
 			deactivate_all_zones()
 		
@@ -86,6 +93,9 @@ func _physics_process(delta):
 				state = BossStates.SPAWNING_ZONES
 				timer = 1.0  # Reduced from 1.5 seconds
 				velocity = Vector3.ZERO
+				# Start bouncing animation when entering zone spawning state
+				if animation_player and animation_player.has_animation("spawn_zones"):
+					animation_player.play("spawn_zones")
 				return
 		
 			charge_direction = (player.global_position - global_position).normalized()
@@ -104,6 +114,10 @@ func _physics_process(delta):
 				state = BossStates.COOLDOWN
 				timer = cooldown_duration
 				zone_spawn_timer = zone_spawn_cooldown
+				# Stop bouncing animation when exiting zone spawning state
+				if animation_player:
+					animation_player.stop()
+					reset_boss_appearance()
 			
 		BossStates.CHARGING:
 			velocity = charge_direction * charge_speed
@@ -221,6 +235,15 @@ func cleanup_destroyed_zones():
 		if not is_instance_valid(active_zones[i].zone):
 			active_zones.remove_at(i)
 
+func reset_boss_appearance():
+	# Reset scale and color to normal when animation is interrupted
+	$Pivot.scale = Vector3.ONE
+	var mesh_instance = $Pivot/MeshInstance3D
+	if mesh_instance:
+		var material = mesh_instance.get_surface_override_material(0)
+		if material:
+			material.albedo_color = Color.WHITE
+
 func destroy_all_zones():
 	for zone_data in active_zones:
 		if is_instance_valid(zone_data.zone):
@@ -235,12 +258,67 @@ func check_player_collision():
 		var collision = get_slide_collision(i)
 		var collider = collision.get_collider()
 		
+		# Check if boss hit a destroyable barrier while charging
+		if state == BossStates.CHARGING and collider.is_in_group("abbaubare_objekte"):
+			destroy_barrier(collider)
+			continue
+		
 		if collider == player:
 			on_player_collision(collider)
 			has_hit_player = true
 			velocity = Vector3.ZERO
 			break
-		
+
+func destroy_barrier(barrier):
+	print("Boss destroyed a barrier while charging!")
+	
+	# Create dramatic destruction effect
+	create_boss_destruction_particles(barrier.global_position)
+	
+	# Destroy the barrier instantly (boss is powerful)
+	if barrier.has_method("destroy"):
+		barrier.destroy()
+	else:
+		barrier.queue_free()
+	
+	# Add screen shake for impact
+	if player and player.has_method("add_trauma"):
+		player.add_trauma(0.3)
+
+func create_boss_destruction_particles(position: Vector3):
+	var particles = GPUParticles3D.new()
+
+	# Configure particle material for dramatic boss destruction
+	var material = ParticleProcessMaterial.new()
+	material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	material.emission_sphere_radius = 1.0
+	material.gravity = Vector3(0, -3, 0)
+	material.initial_velocity_min = 3.0
+	material.initial_velocity_max = 8.0
+	material.color = Color(0.8, 0.4, 0.1) # Orange/brown destruction color
+	material.scale_min = 0.1
+	material.scale_max = 0.3
+	particles.process_material = material
+
+	# Particle mesh - larger chunks for boss destruction
+	var mesh = BoxMesh.new()
+	mesh.size = Vector3(0.2, 0.2, 0.2)
+	particles.draw_pass_1 = mesh
+
+	particles.one_shot = true
+	particles.emitting = true
+	particles.amount = 50  # More particles for dramatic effect
+	particles.lifetime = 2.0
+	particles.explosiveness = 1.0  # All particles emit at once
+
+	get_parent().add_child(particles)
+	particles.global_position = position
+
+	# Clean up particles
+	await get_tree().create_timer(3.0).timeout
+	if is_instance_valid(particles):
+		particles.queue_free()
+
 func on_player_collision(_player):
 	print("Boss hit the player!")
 	player.add_trauma(1)
