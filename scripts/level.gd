@@ -239,7 +239,8 @@ func remove_intro_mission_elements():
 	for child in get_children():
 		if child.name.begins_with("IntroSection_"):
 			sections_to_remove.append(child)
-	
+		if child.name.begins_with("Boss"):
+			sections_to_remove.append(child)
 	for section in sections_to_remove:
 		print("Removing intro mission section: ", section.name)
 		section.queue_free()
