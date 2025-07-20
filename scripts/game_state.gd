@@ -90,6 +90,7 @@ var current_game_mode: GameMode = GameMode.NORMAL
 var is_first_time_player = true
 var intro_mission_completed = false
 var friend_death_position: Vector3 = Vector3.ZERO
+var boss_encountered = false  # Flag to track if player has seen the boss for the first time
 
 func _ready():
 	# Connect to inventory's methods to emit the inventory_updated signal
@@ -156,12 +157,17 @@ func is_boss_defeated() -> bool:
 	# Boss is defeated when the WIN dialog stage has been reached
 	return Boss.boss_dialog_section == Boss.BossDialogSections.WIN
 
+# Check if AK47 should be available for purchase
+func is_ak47_available() -> bool:
+	return boss_encountered
+
 # Intro mission functions
 func start_intro_mission():
 	print("Starting intro mission")
 	current_game_mode = GameMode.INTRO_MISSION
 	is_first_time_player = true
 	intro_mission_completed = false
+	boss_encountered = false  # Reset boss encounter flag for intro mission
 	
 	# Reset game state properly for intro mission
 	death_screen = false
@@ -249,6 +255,7 @@ func complete_intro_mission(death_position: Vector3):
 	Boss.setDialogStage(Boss.BossDialogSections.POST_INTRO_RESCUE)
 	
 	Boss.boss_spawned = false  # Ensure boss is not spawned after intro mission
+	boss_encountered = false   # Reset boss encounter flag after intro mission
 	
 	# Restore achievement UI visibility after intro mission
 	restore_ui_after_intro_mission()
@@ -265,6 +272,7 @@ func start_normal_mode():
 	current_game_mode = GameMode.NORMAL
 	is_first_time_player = false
 	intro_mission_completed = true  # Intro mission is skipped in normal mode
+	boss_encountered = false  # Reset boss encounter flag in normal mode
 	
 	# Initialize normal game state
 	death_screen = false

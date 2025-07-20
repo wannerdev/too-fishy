@@ -547,8 +547,19 @@ func _setup_upgrade_menu():
 	content_container.add_theme_constant_override("separation", 20)
 	main_container.add_child(content_container)
 	
+	# Filter EQUIPMENT category to hide AK47 if player hasn't encountered the boss yet
+	var filtered_equipment = []
+	for item in categories["EQUIPMENT"]:
+		# Only include AK47 if the player has encountered the boss
+		if item == GameState.Upgrade.AK47 and not GameState.boss_encountered:
+			continue
+		# Skip DUALAK47 if player hasn't unlocked AK47 yet
+		if item == GameState.Upgrade.DUALAK47 and GameState.upgrades[GameState.Upgrade.AK47] == 0:
+			continue
+		filtered_equipment.append(item)
+	
 	# Create categories
-	var equipment_column = create_category_column("EQUIPMENT", categories["EQUIPMENT"])
+	var equipment_column = create_category_column("EQUIPMENT", filtered_equipment)
 	var performance_column = create_category_column("PERFORMANCE", categories["PERFORMANCE"])
 	var utility_column = create_category_column("UTILITY", categories["UTILITY"])
 	

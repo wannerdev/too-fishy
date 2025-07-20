@@ -40,8 +40,9 @@ var boss_dialog_lines = {
 	Boss.BossDialogSections.FRIEND_RESCUED: ["[color=#E0E0E0]Oh my god thank you! That [/color][color=#f21820ae]mind controlling blobfish[/color][color=#E0E0E0]!\nYou killed it![/color]", "[color=#E0E0E0]I thought I was a goner![/color]", "[color=#E0E0E0]I will follow you to the surface, I can't wait to get out of here![/color]"],
 	Boss.BossDialogSections.WIN: ["[color=#E0E0E0]You rescued your friend from the evil mind controlling blobfish![/color]", "[color=#E0E0E0]Congratulations, you beat our game. Feel free to keep fishing, the first game idea was created in Ludum dare 57.[/color]"],
 	Boss.BossDialogSections.BOSS_DEFEATED: ["[color=#E0E0E0]The mind-controlling blobfish has been killed![/color]", "[color=#E0E0E0]Thank you! Come get us, we will follow your lead![/color]"],
-	Boss.BossDialogSections.POST_INTRO_RESCUE: ["[color=#E0E0E0]Noo the blobfish used some crazy mind control on you. You have to rescue your friend, but first you need to get a better submarine to be able to beat the blobfish.[/color]"]
-	}
+	Boss.BossDialogSections.POST_INTRO_RESCUE: ["[color=#E0E0E0]Noo the blobfish used some crazy mind control on you. You have to rescue your friend, but first you need to get a better submarine to be able to beat the blobfish.[/color]"],
+	Boss.BossDialogSections.AK47_UNLOCKED: ["[color=#E0E0E0]Damn, that blobfish is no joke! [/color][color=#f21820ae]I need better weapons...[/color][color=#E0E0E0]\n\nThat's it! I heard about a [/color][color=#2C3E50]gun upgrade[/color][color=#E0E0E0] available at the dock. If I'm going to save my friend from that creature, I'll need some serious firepower.\n\nI should head back to the dock and check the [/color][color=#2C3E50]EQUIPMENT[/color][color=#E0E0E0] section for an [/color][color=#f21820ae]AK47[/color][color=#E0E0E0]. Time to show that blobfish who's boss![/color]"]
+}
 
 var upgradeDescriptions = {
 							  GameState.Upgrade.CARGO_SIZE: "Increases the maximum weight your submarine can carry, allowing you to collect more fish before returning to dock.",

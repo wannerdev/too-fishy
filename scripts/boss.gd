@@ -12,7 +12,7 @@ signal boss_spawned_signal(max_health)
 signal boss_defeated_signal
 signal boss_health_bar_hidden
 
-enum BossDialogSections {TUTORIAL1, TUTORIAL2, TUTORIAL3, TUTORIAL4, RESCUE_CALL, BOSS_INTRO, BOSS_KILLS_FRIEND, FRIEND_RESCUED, WIN, BOSS_DEFEATED, POST_INTRO_RESCUE}
+enum BossDialogSections {TUTORIAL1, TUTORIAL2, TUTORIAL3, TUTORIAL4, RESCUE_CALL, BOSS_INTRO, BOSS_KILLS_FRIEND, FRIEND_RESCUED, WIN, BOSS_DEFEATED, POST_INTRO_RESCUE, AK47_UNLOCKED}
 
 var boss_dialog_from = {
 	BossDialogSections.TUTORIAL1: "John",
@@ -26,6 +26,7 @@ var boss_dialog_from = {
 	BossDialogSections.BOSS_DEFEATED: "John",
 	BossDialogSections.WIN: "Too Fishy",
 	BossDialogSections.POST_INTRO_RESCUE: "John",
+	BossDialogSections.AK47_UNLOCKED: "John",
 }
 
 var dialog_depth_map = {
@@ -45,6 +46,22 @@ func setBossSpawned(boss: Node3D):
 	boss_health = boss_max_health
 	emit_signal("boss_spawned_signal", boss_max_health)
 	setDialogStage(BossDialogSections.BOSS_INTRO)
+	
+	# Set the boss_encountered flag in GameState when the boss is first seen
+	# Only do this in normal game mode, not during intro mission
+	if not GameState.boss_encountered and not GameState.is_intro():
+		GameState.boss_encountered = true
+		
+		# Force upgrade menu to rebuild next time it's shown
+		var ui_node = get_node_or_null("/root/Node3D/UI")
+		if ui_node:
+			var upgrade_menu = ui_node.find_child("Upgrades", true, false)
+			if upgrade_menu and upgrade_menu.has_method("rebuild_upgrade_menu"):
+				# Schedule rebuild for next frame to ensure flag is properly set
+				get_tree().create_timer(0.1).timeout.connect(func(): upgrade_menu.rebuild_upgrade_menu())
+		
+		# After the boss intro dialog, show the AK47 unlock dialog
+		get_tree().create_timer(0.5).timeout.connect(func(): setDialogStage(BossDialogSections.AK47_UNLOCKED))
 
 func take_damage(amount):
 	boss_health -= amount
