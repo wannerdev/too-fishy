@@ -25,7 +25,7 @@
 [ext_resource type="Script" uid="uid://q0tu1in7y6pf" path="res://scripts/musicplayer.gd" id="22_k67gn"]
 [ext_resource type="Material" uid="uid://dv7qrtiq87nj0" path="res://materials/walls/walls.tres" id="22_u0fll"]
 [ext_resource type="ArrayMesh" uid="uid://c54e8dk8jsryd" path="res://meshes/vains_v003.obj" id="23_6p3nn"]
-[ext_resource type="PackedScene" path="res://scenes/dock_3_remesh.tscn" id="23_k3g67"]
+[ext_resource type="PackedScene" uid="uid://cu74jh81r7l20" path="res://scenes/dock_3_remesh.tscn" id="23_k3g67"]
 [ext_resource type="Material" uid="uid://bupgrlcbs4i6k" path="res://materials/walls/veins.tres" id="24_k67gn"]
 [ext_resource type="PackedScene" uid="uid://peitbuaqkkcm" path="res://scenes/ui/achievement_panel.tscn" id="24_qr5t3"]
 [ext_resource type="PackedScene" uid="uid://dflc3w5x5x5x5" path="res://scenes/ui/boss_health_bar.tscn" id="29_4bgka"]
@@ -153,14 +153,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, 3.28338)
 [node name="Lava2" parent="Level/lava" instance=ExtResource("7_r6p65")]
 transform = Transform3D(1.38184, 0, -0.826246, 0, 1.62324, 0, 2.02685, 0, 0.56331, -1.95878, -10.4057, -2.69743)
 
-[node name="Lava3" parent="Level/lava" instance=ExtResource("8_k3g67")]
-transform = Transform3D(0.623252, 0, 0, 0, 3.47559, 0, 0, 0, 1, -24.9548, -31.233, -2.50529)
-
-[node name="Lava4" parent="Level/lava" instance=ExtResource("8_k3g67")]
-transform = Transform3D(0.623252, 0, 0, 0, 3.47559, 0, 0, 0, 1, -24.9548, -31.233, -3.09665)
-
 [node name="Lava5" parent="Level/lava" instance=ExtResource("8_k3g67")]
-transform = Transform3D(0.623252, 0, 0, 0, 3.47559, 0, 0, 0, 1, -24.9548, -31.233, -3.49109)
+transform = Transform3D(0.580655, 0, 0.258595, 0, 7, 0, -1.35555, 0, 0.11077, -26.5695, -30.7557, -3.59032)
 
 [node name="FirstSection" parent="Level" instance=ExtResource("4_gubc5")]
 transform = Transform3D(0.999998, 0.00193481, -0.00103434, -0.00193703, 0.999996, -0.00214899, 0.00103019, 0.00215098, 0.999997, 0, -10.5, 0)
@@ -678,7 +672,7 @@ skeleton = NodePath("../..")
 surface_material_override/0 = ExtResource("9_7nt27")
 
 [node name="Water" parent="." instance=ExtResource("20_k6f3i")]
-transform = Transform3D(-43.6006, 0, 0, 0, 1, 0, 0, 0, 15.708, -14.3034, 0.00877783, 0.808204)
+transform = Transform3D(-32, 0, 0, 0, 0.734, -1.0079e-06, 0, 6.41683e-08, 11.529, -14.3034, 0.00877783, 3.04191)
 
 [node name="dock3_remesh" parent="." instance=ExtResource("23_k3g67")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.04975, 0.560926, 0.184795)
