@@ -7,7 +7,7 @@ frequency = 0.011
 fractal_type = 2
 
 [resource]
+noise = SubResource("FastNoiseLite_0fbhj")
 seamless = true
 as_normal_map = true
 bump_strength = 1.5
-noise = SubResource("FastNoiseLite_0fbhj")

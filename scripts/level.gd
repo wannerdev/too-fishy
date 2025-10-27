@@ -42,41 +42,48 @@ func spawn_intro_mission_sections():
 	print("Spawning intro mission sections")
 	
 	# Create invisible barrier at 400m depth (y=-400)
+	var lavaWall = preload("res://scenes/lava_side.tscn").instantiate()
+	lavaWall.name = "Lava WAll"
+	lavaWall.position = Vector3(-15, -400, 0)  # Center it at x=-15 to cover full section width
+	lavaWall.scale = Vector3(30, 15, 10)  # Wide horizontal Wall
+	
+	# Create invisible barrier at 400m depth (y=-400)
 	var invisible_barrier = StaticBody3D.new()
 	invisible_barrier.name = "InvisibleBarrier400m"
 	invisible_barrier.position = Vector3(-15, -400, 0)  # Center it at x=-15 to cover full section width
-	
+
 	# Create collision shape for the barrier
 	var collision_shape = CollisionShape3D.new()
 	var box_shape = BoxShape3D.new()
 	box_shape.size = Vector3(30, 2, 10)  # Wide horizontal barrier
 	collision_shape.shape = box_shape
 	invisible_barrier.add_child(collision_shape)
+	add_child(invisible_barrier)
 	
 	# Make it invisible (no mesh, only collision)
-	invisible_barrier.collision_layer = 3
-	invisible_barrier.collision_mask = 3
+	#invisible_barrier.collision_layer = 3
+	#invisible_barrier.collision_mask = 3
 	
-	add_child(invisible_barrier)
-	print("Invisible barrier created at 400m depth")
+	add_child(lavaWall)
+	print("lavaWall created at 400m depth")
 	
 	# Create scatter area around and below the invisible barrier
-	var scatter_area = Area3D.new()
-	scatter_area.name = "InvisibleBarrierScatterArea"
-	scatter_area.position = Vector3(-15, -400, 0)  # 20m below the barrier
-	scatter_area.monitorable = false
+	#var scatter_area = Area3D.new()
+	#scatter_area.name = "InvisibleBarrierScatterArea"
+	#scatter_area.position = Vector3(-15, -400, 0)  # 20m below the barrier
+	#scatter_area.monitorable = false
 	
-	# Create collision shape for scatter area (larger area around and below barrier)
-	var scatter_collision = CollisionShape3D.new()
-	var scatter_box = BoxShape3D.new()
-	scatter_box.size = Vector3(40, 60, 15)  # Wide area around and below barrier
-	scatter_collision.shape = scatter_box
-	scatter_area.add_child(scatter_collision)
+	## Create collision shape for scatter area (larger area around and below barrier)
+	#var scatter_collision = CollisionShape3D.new()
+	#var scatter_box = BoxShape3D.new()
+	#scatter_box.size = Vector3(40, 60, 15)  # Wide area around and below barrier
+	#scatter_collision.shape = scatter_box
+	#scatter_area.add_child(scatter_collision)
 	
 	# Connect scatter signal
-	scatter_area.body_entered.connect(_on_barrier_scatter_area_entered)
+	#scatter_area.body_entered.connect(_on_barrier_scatter_area_entered)
 	
-	add_child(scatter_area)
+	#add_child(scatter_area)
 	print("Scatter area created around invisible barrier")
 	
 	# Spawn PreBarrier section at y=-400

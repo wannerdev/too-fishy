@@ -439,6 +439,7 @@ func _on_timer_timeout():
 	can_shoot = true
 
 func process_dock(delta):
+	
 	# Skip docking during intro mission
 	if GameState.is_intro():
 		GameState.isDocked = false

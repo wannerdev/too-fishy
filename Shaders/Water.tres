@@ -6,8 +6,8 @@
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_aggf3"]
 
 [sub_resource type="NoiseTexture2D" id="NoiseTexture2D_qniod"]
-seamless = true
 noise = SubResource("FastNoiseLite_aggf3")
+seamless = true
 
 [resource]
 render_priority = 5

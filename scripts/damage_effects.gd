@@ -28,15 +28,13 @@ var webgl_max_pressure_cracks = 4 # Reduced pressure cracks for WebGL
 func _ready():
 	# Detect WebGL and apply optimizations
 	is_webgl_build = OS.get_name() == "Web"
-	
+	randomize()
+	preloaded_crack_texture = preload("res://textures/effects/screen_crack.png")
 	if is_webgl_build:
 		max_cracks = webgl_max_cracks
 		max_pressure_cracks = webgl_max_pressure_cracks
 		crack_fade_time = 2.0 # Faster fade on WebGL
 		pressure_crack_spawn_interval = 2.0 # Slower spawn rate
-	
-	# Preload crack texture once to avoid repeated loading
-	preloaded_crack_texture = load("res://textures/effects/screen_crack.png")
 	
 	# Initialize with invisible effects
 	red_flash.modulate.a = 0
@@ -80,7 +78,7 @@ func reset_pressure_damage():
 		is_under_pressure = false
 		pressure_accumulation_timer = 0.0
 		print("Ended pressure damage processing")
-	
+	start_all_cracks_fade()
 	# Fade out red flash
 	red_flash.color = Color(1, 0, 0, 0)
 
@@ -106,7 +104,7 @@ func add_crack_layer():
 	# Smaller cracks on WebGL for better performance
 	var base_size = Vector2(200, 200)
 	if is_webgl_build:
-		base_size = Vector2(150, 150) # Smaller base size for WebGL
+		base_size = Vector2(100, 100) # Smaller base size for WebGL
 	
 	# Random size for variety (between 50% and 150% of base size)
 	var scale_factor = randf_range(0.5, 1.5)
@@ -281,6 +279,7 @@ func start_all_cracks_fade():
 		if is_instance_valid(crack) and not crack.get_meta("is_fading", false):
 			crack.set_meta("is_fading", true)
 			var fade_tween = create_tween()
+			var t = get_tree().create_tween()
 			fade_tween.tween_property(crack, "modulate:a", 0, 2.0) # Fade out over 2 seconds
 			fade_tween.tween_callback(func(): remove_crack_layer(crack))
 	
