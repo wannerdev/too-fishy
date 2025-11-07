@@ -1,0 +1,72 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - feature/androidbuild
+  pull_request:
+    branches:
+      - feature/androidbuild
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Godot binaries and templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/godot/export_templates/4.4.stable
+            ~/godot
+          key: godot-4.4-stable-${{ runner.os }}
+
+      - name: Download Godot Headless
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -euxo pipefail
+          GODOT_VERSION=4.4-stable
+          mkdir -p "$HOME/godot"
+          curl -L "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip" -o /tmp/godot_headless.zip
+          unzip -q /tmp/godot_headless.zip -d "$HOME/godot"
+          mv "$HOME/godot/Godot_v${GODOT_VERSION}_linux_headless.64" "$HOME/godot/godot-headless"
+          chmod +x "$HOME/godot/godot-headless"
+
+      - name: Install export templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -euxo pipefail
+          GODOT_VERSION=4.4-stable
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.stable"
+          curl -L "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz" -o /tmp/godot_templates.tpz
+          unzip -q /tmp/godot_templates.tpz -d /tmp/godot_templates
+          cp -r /tmp/godot_templates/templates/. "$HOME/.local/share/godot/export_templates/4.4.stable/"
+
+      - name: Add Godot to PATH
+        run: echo "$HOME/godot" >> "$GITHUB_PATH"
+
+      - name: Export Android APK
+        run: |
+          set -euxo pipefail
+          mkdir -p build/android
+          godot-headless --headless --verbose --path . --export-debug "Android"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: too-fishy-android-debug
+          path: build/android/TooFishy-debug.apk
