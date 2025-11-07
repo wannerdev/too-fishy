@@ -26,6 +26,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 33
+          build-tools: 33.0.2
+
       - name: Cache Godot binaries and templates
         id: cache-godot
         uses: actions/cache@v4
@@ -58,6 +64,35 @@ jobs:
 
       - name: Add Godot to PATH
         run: echo "$HOME/godot" >> "$GITHUB_PATH"
+
+      - name: Generate debug keystore
+        run: |
+          set -euxo pipefail
+          mkdir -p android
+          rm -f android/debug.keystore
+          keytool -genkeypair \
+            -alias androiddebugkey \
+            -keystore android/debug.keystore \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000
+
+      - name: Configure Godot Android settings
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/.config/godot"
+          cat <<EOF > "$HOME/.config/godot/editor_settings-4.4.tres"
+[gd_resource type="EditorSettings" format=3]
+
+[resource]
+export/android/debug_keystore = "${GITHUB_WORKSPACE}/android/debug.keystore"
+export/android/debug_keystore_pass = "android"
+export/android/java_sdk_path = "${JAVA_HOME}"
+export/android/android_sdk_path = "${ANDROID_SDK_ROOT}"
+EOF
 
       - name: Export Android APK
         run: |
