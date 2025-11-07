@@ -35,16 +35,16 @@ jobs:
             ~/godot
           key: godot-4.4-stable-${{ runner.os }}
 
-      - name: Download Godot Headless
+      - name: Download Godot
         if: steps.cache-godot.outputs.cache-hit != 'true'
         run: |
           set -euxo pipefail
           GODOT_VERSION=4.4-stable
           mkdir -p "$HOME/godot"
-          curl -L "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux_headless.64.zip" -o /tmp/godot_headless.zip
-          unzip -q /tmp/godot_headless.zip -d "$HOME/godot"
-          mv "$HOME/godot/Godot_v${GODOT_VERSION}_linux_headless.64" "$HOME/godot/godot-headless"
-          chmod +x "$HOME/godot/godot-headless"
+          curl -L "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o /tmp/godot_linux.zip
+          unzip -q /tmp/godot_linux.zip -d "$HOME/godot"
+          mv "$HOME/godot/Godot_v${GODOT_VERSION}_linux.x86_64" "$HOME/godot/godot"
+          chmod +x "$HOME/godot/godot"
 
       - name: Install export templates
         if: steps.cache-godot.outputs.cache-hit != 'true'
@@ -63,7 +63,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p build/android
-          godot-headless --headless --verbose --path . --export-debug "Android"
+          godot --headless --verbose --path . --export-debug "Android"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
