@@ -97,7 +97,16 @@ func _on_viewport_size_changed() -> void:
 	_update_layout()
 
 func _update_screen_size() -> void:
-	screen_size = get_viewport().get_visible_rect().size if get_viewport() else size
+	var new_size := _get_viewport_size()
+	if new_size != Vector2.ZERO:
+		screen_size = new_size
+
+func _get_viewport_size() -> Vector2:
+	if get_viewport():
+		return get_viewport().get_visible_rect().size
+	if get_window():
+		return get_window().size
+	return size
 
 func _update_layout() -> void:
 	if screen_size == Vector2.ZERO:
@@ -229,6 +238,11 @@ func _joystick_allowed(position: Vector2) -> bool:
 func _process(delta: float) -> void:
 	if not visible:
 		return
+	var new_size := _get_viewport_size()
+	if new_size != Vector2.ZERO and new_size != screen_size:
+		screen_size = new_size
+		_update_layout()
+
 	var layout_dirty := _refresh_button_visibility()
 	for name in buttons.keys():
 		var data: Dictionary = buttons[name]
@@ -345,8 +359,8 @@ func _draw():
 	if not visible:
 		return
 
-	var base_color := Color(0.5, 0.5, 0.5, 0.25)
-	var handle_color := Color(0.85, 0.85, 0.85, 0.6)
+	var base_color := Color(0.2, 0.2, 0.2, 0.35)
+	var handle_color := Color(0.95, 0.95, 0.95, 0.8)
 	draw_circle(joystick_rest_position, joystick_radius, base_color)
 	if joystick_active:
 		draw_circle(joystick_origin, joystick_radius, base_color)
