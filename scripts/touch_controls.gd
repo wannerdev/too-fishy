@@ -12,6 +12,8 @@ const TAU := PI * 2.0
 @export var ability_button_size := Vector2(150, 150)
 @export var utility_button_size := Vector2(140, 140)
 @export var hold_threshold_default := 0.6
+@export var show_in_editor := true
+@export var force_enable := false
 
 signal joystick_input(direction: Vector2)
 signal shoot_pressed() # legacy signal for compatibility
@@ -31,7 +33,7 @@ const ABILITY_ORDER := ["buoy", "drone", "save"]
 const UTILITY_ORDER := ["inventory", "pause"]
 
 func _ready():
-	var should_show := OS.has_feature("mobile") or OS.has_feature("web")
+	var should_show := _should_show_controls()
 	visible = should_show
 	set_process(should_show)
 	set_process_input(should_show)
@@ -40,12 +42,23 @@ func _ready():
 	focus_mode = Control.FOCUS_NONE
 	z_index = 128
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	if should_show:
-		_initialize_buttons()
-		_update_screen_size()
-		_update_layout()
-		if get_viewport():
-			get_viewport().size_changed.connect(_on_viewport_size_changed)
+	if not should_show:
+		return
+
+	_initialize_buttons()
+	_update_screen_size()
+	_update_layout()
+	if get_viewport():
+		get_viewport().size_changed.connect(_on_viewport_size_changed)
+
+func _should_show_controls() -> bool:
+	if force_enable:
+		return true
+	if OS.has_feature("mobile") or OS.has_feature("web"):
+		return true
+	if Engine.is_editor_hint() and show_in_editor:
+		return true
+	return false
 
 func _initialize_buttons() -> void:
 	buttons.clear()
