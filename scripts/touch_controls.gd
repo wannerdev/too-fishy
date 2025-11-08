@@ -5,6 +5,7 @@ extends Control
 @export var shoot_button_size := Vector2(180, 180)
 @export var screen_margin := 24.0
 @export var joystick_deadzone := 0.12
+@export var action_deadzone := 0.1
 
 var joystick_active := false
 var joystick_origin := Vector2.ZERO
@@ -66,6 +67,7 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 			joystick_position = event.position
 			joystick_direction = Vector2.ZERO
 			emit_signal("joystick_input", joystick_direction)
+			_update_action_strengths()
 			queue_redraw()
 	else:
 		if event.index == shoot_touch_index:
@@ -77,6 +79,7 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 			joystick_active = false
 			joystick_direction = Vector2.ZERO
 			emit_signal("joystick_input", Vector2.ZERO)
+			_update_action_strengths()
 			queue_redraw()
 
 func _handle_screen_drag(event: InputEventScreenDrag) -> void:
@@ -89,11 +92,31 @@ func _handle_screen_drag(event: InputEventScreenDrag) -> void:
 		direction = direction / distance * joystick_radius
 		joystick_position = joystick_origin + direction
 	var normalized := direction / joystick_radius
-	if normalized.length() < joystick_deadzone:
-		normalized = Vector2.ZERO
-	joystick_direction = normalized
+	var adjusted := Vector2(normalized.x, -normalized.y)
+	if adjusted.length() < joystick_deadzone:
+		adjusted = Vector2.ZERO
+	joystick_direction = adjusted
 	emit_signal("joystick_input", joystick_direction)
+	_update_action_strengths()
 	queue_redraw()
+
+func _update_action_strengths() -> void:
+	Input.action_release("move_left")
+	Input.action_release("move_right")
+	Input.action_release("move_up")
+	Input.action_release("move_down")
+
+	var x := joystick_direction.x
+	if x > action_deadzone:
+		Input.action_press("move_right", clampf(x, 0.0, 1.0))
+	elif x < -action_deadzone:
+		Input.action_press("move_left", clampf(-x, 0.0, 1.0))
+
+	var y := joystick_direction.y
+	if y > action_deadzone:
+		Input.action_press("move_up", clampf(y, 0.0, 1.0))
+	elif y < -action_deadzone:
+		Input.action_press("move_down", clampf(-y, 0.0, 1.0))
 
 func _draw():
 	if not visible:
