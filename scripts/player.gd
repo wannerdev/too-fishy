@@ -86,7 +86,6 @@ func _ready():
 		touch_controls = touch_controls_scene.instantiate()
 		get_tree().root.add_child(touch_controls)
 		touch_controls.joystick_input.connect(_on_joystick_input)
-		touch_controls.shoot_pressed.connect(_on_shoot_pressed)
 	
 	# Get reference to pause menu from UI
 	var ui_node = get_node("/root/Node3D/UI")
@@ -95,10 +94,6 @@ func _ready():
 
 func _on_joystick_input(direction):
 	touch_direction = direction
-
-func _on_shoot_pressed():
-	if can_shoot and !GameState.paused and !is_mouse_over_ui():
-		shoot_harpoon()
 
 func collision():
 	var _collision = move_and_slide()
