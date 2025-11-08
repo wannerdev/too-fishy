@@ -84,7 +84,11 @@ func _ready():
 	# Initialize touch controls if on mobile
 	if OS.has_feature("mobile") or OS.has_feature("web"):
 		touch_controls = touch_controls_scene.instantiate()
-		get_tree().root.add_child(touch_controls)
+		var ui_root := get_tree().root.get_node_or_null("Node3D/UI")
+		if ui_root:
+			ui_root.add_child(touch_controls)
+		else:
+			get_tree().root.add_child(touch_controls)
 		touch_controls.joystick_input.connect(_on_joystick_input)
 	
 	# Get reference to pause menu from UI
