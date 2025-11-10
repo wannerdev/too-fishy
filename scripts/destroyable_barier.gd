@@ -264,7 +264,7 @@ func show_hint():
 		popup_instance.duration = 4.0
 		
 		# Make text larger for better visibility
-		popup_instance.font_size = 42
+		popup_instance.font_size = 72
 		
 		# Let start_animation handle the positioning completely
 		var hint_position = global_position + Vector3(0, 1, 0)

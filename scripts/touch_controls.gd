@@ -2,6 +2,12 @@ extends Control
 
 const TAU := PI * 2.0
 
+const COLOR_PRIMARY := Color("#2e6fce") # main action blue
+const COLOR_PRIMARY_LIGHT := Color("#3e84f5")
+const COLOR_PRIMARY_DARK := Color("#2459a8")
+const COLOR_ACCENT := Color("#54a3ff")
+const COLOR_ACCENT_LIGHT := Color("#6bb2ff")
+
 @export var joystick_radius := 140.0
 @export var joystick_handle_radius := 52.0
 @export var joystick_deadzone := 0.12
@@ -62,16 +68,16 @@ func _should_show_controls() -> bool:
 
 func _initialize_buttons() -> void:
 	buttons.clear()
-	buttons["harpoon"] = _make_button("throw", "action", "Harpoon", action_button_size, Color(0.18, 0.54, 0.95, 0.85))
-	buttons["shoot"] = _make_button("shoot", "action", "Gun", action_button_size * 0.9, Color(0.95, 0.32, 0.32, 0.85), GameState.Upgrade.AK47)
-	buttons["pickaxe"] = _make_button("swing_pickaxe", "action", "Pick", action_button_size * 0.85, Color(0.50, 0.78, 0.44, 0.85), GameState.Upgrade.PICKAXE_UNLOCKED, 0.0, true)
+	buttons["harpoon"] = _make_button("throw", "action", "Harpoon", action_button_size, COLOR_PRIMARY_LIGHT)
+	buttons["shoot"] = _make_button("shoot", "action", "Gun", action_button_size * 0.9, COLOR_PRIMARY, GameState.Upgrade.AK47)
+	buttons["pickaxe"] = _make_button("swing_pickaxe", "action", "Pick", action_button_size * 0.85, COLOR_PRIMARY_DARK, GameState.Upgrade.PICKAXE_UNLOCKED, 0.0, true)
 
-	buttons["buoy"] = _make_button("upgrade_surface_buoy", "ability", "Buoy", ability_button_size, Color(0.96, 0.77, 0.31, 0.85), GameState.Upgrade.SURFACE_BUOY, 0.0, true)
-	buttons["drone"] = _make_button("upgrade_drone_selling", "ability", "Drone", ability_button_size, Color(0.88, 0.52, 0.78, 0.85), GameState.Upgrade.DRONE_SELLING, hold_threshold_default, true)
-	buttons["save"] = _make_button("inventory_save", "ability", "Save", ability_button_size, Color(0.43, 0.72, 0.89, 0.85), GameState.Upgrade.INVENTORY_SAVE, hold_threshold_default, true)
+	buttons["buoy"] = _make_button("upgrade_surface_buoy", "ability", "Buoy", ability_button_size, COLOR_ACCENT, GameState.Upgrade.SURFACE_BUOY, 0.0, true)
+	buttons["drone"] = _make_button("upgrade_drone_selling", "ability", "Drone", ability_button_size, COLOR_ACCENT_LIGHT, GameState.Upgrade.DRONE_SELLING, hold_threshold_default, true)
+	buttons["save"] = _make_button("inventory_save", "ability", "Save", ability_button_size, COLOR_PRIMARY_LIGHT, GameState.Upgrade.INVENTORY_SAVE, hold_threshold_default, true)
 
-	buttons["inventory"] = _make_button("inv_toggle", "utility", "Inventory", utility_button_size, Color(0.29, 0.82, 0.74, 0.85), -1, 0.0, true)
-	buttons["pause"] = _make_button("esc", "utility", "Pause", utility_button_size * Vector2(0.85, 0.85), Color(0.78, 0.78, 0.82, 0.85), -1, 0.0, true)
+	buttons["inventory"] = _make_button("inv_toggle", "utility", "Inventory", utility_button_size, COLOR_PRIMARY, -1, 0.0, true)
+	buttons["pause"] = _make_button("esc", "utility", "Pause", utility_button_size * Vector2(0.85, 0.85), COLOR_PRIMARY_DARK, -1, 0.0, true)
 
 func _make_button(action: String, group: String, label: String, size: Vector2, color: Color, requires_upgrade: int = -1, hold_threshold: float = 0.0, auto_release: bool = false) -> Dictionary:
 	return {
@@ -277,6 +283,8 @@ func _is_button_available(name: String) -> bool:
 	if not buttons.has(name):
 		return false
 	var data: Dictionary = buttons[name]
+	if name == "drone" and GameState.is_intro():
+		return false
 	if data.requires_upgrade != -1:
 		if not GameState.upgrades.has(data.requires_upgrade):
 			return false
@@ -380,11 +388,7 @@ func _draw():
 		if data.pressed:
 			fill_color = fill_color.lightened(0.12)
 		draw_circle(center, radius, fill_color)
-		draw_arc(center, radius, 0.0, TAU, 48, fill_color.darkened(0.35), 4.5)
-		if data.hold_threshold > 0.0 and data.pressed:
-			var ratio: float = clamp(data.hold_elapsed / data.hold_threshold, 0.0, 1.0)
-			if ratio > 0.0:
-				draw_arc(center, radius + 6.0, -PI / 2.0, -PI / 2.0 + TAU * ratio, 64, fill_color.lightened(0.25), 6.0)
+		draw_arc(center, radius, 0.0, TAU, 48, fill_color.darkened(0.25), 4.5)
 		if font:
 			var text: String = data.label
 			var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
