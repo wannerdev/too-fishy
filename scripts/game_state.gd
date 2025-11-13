@@ -71,6 +71,7 @@ var depth = 0
 var maxDepthReached = 0
 var money: int = 25
 var isDocked = false
+var shop_hide_hint_shown := false
 var fishes_lower_boarder = -15 - 12
 
 var player_node: CharacterBody3D = null
@@ -174,6 +175,7 @@ func start_intro_mission():
 	paused = false
 	health = 100
 	isDocked = false  # Ensure player is not docked during intro mission
+	shop_hide_hint_shown = false
 	
 	# Force hide death UI and reset all states
 	force_hide_death_ui()
@@ -279,6 +281,7 @@ func start_normal_mode():
 	paused = false
 	health = 100
 	isDocked = false
+	shop_hide_hint_shown = false
 	
 	# Set player to surface level
 	playerInStage = Stage.SURFACE

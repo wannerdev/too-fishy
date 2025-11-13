@@ -283,6 +283,11 @@ func _is_button_available(name: String) -> bool:
 	if not buttons.has(name):
 		return false
 	var data: Dictionary = buttons[name]
+	if name == "harpoon":
+		if GameState.is_intro():
+			return false
+		if GameState.upgrades.has(GameState.Upgrade.HARPOON) and GameState.upgrades[GameState.Upgrade.HARPOON] > 0:
+			return false
 	if name == "drone" and GameState.is_intro():
 		return false
 	if data.requires_upgrade != -1:

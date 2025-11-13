@@ -248,13 +248,18 @@ text = "OCEAN"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PressureInfo" type="PanelContainer" parent="UI/HUD/MarginContainer/HUDContainer"]
+[node name="PressureColumn" type="VBoxContainer" parent="UI/HUD/MarginContainer/HUDContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="PressureInfo" type="PanelContainer" parent="UI/HUD/MarginContainer/HUDContainer/PressureColumn"]
 custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_digital")
 
-[node name="PressureBar" type="ProgressBar" parent="UI/HUD/MarginContainer/HUDContainer/PressureInfo"]
+[node name="PressureBar" type="ProgressBar" parent="UI/HUD/MarginContainer/HUDContainer/PressureColumn/PressureInfo"]
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 size_flags_vertical = 1
@@ -262,11 +267,11 @@ theme_override_styles/background = SubResource("StyleBoxFlat_bar_bg")
 value = 100.0
 show_percentage = false
 
-[node name="VBoxContainer" type="VBoxContainer" parent="UI/HUD/MarginContainer/HUDContainer/PressureInfo"]
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/HUD/MarginContainer/HUDContainer/PressureColumn/PressureInfo"]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="PressureLabel" type="Label" parent="UI/HUD/MarginContainer/HUDContainer/PressureInfo/VBoxContainer"]
+[node name="PressureLabel" type="Label" parent="UI/HUD/MarginContainer/HUDContainer/PressureColumn/PressureInfo/VBoxContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.780392, 0.780392, 0.780392, 1)
 theme_override_font_sizes/font_size = 20
@@ -274,6 +279,14 @@ theme_override_styles/normal = SubResource("StyleBoxEmpty_4bgka")
 text = "PRESSURE SYSTEM"
 label_settings = SubResource("LabelSettings_kkokr")
 horizontal_alignment = 1
+
+[node name="PauseToggleButton" type="Button" parent="UI/HUD/MarginContainer/HUDContainer/PressureColumn"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "Pause"
+theme_override_font_sizes/font_size = 20
 
 [node name="CooldownInfo" type="HBoxContainer" parent="UI/HUD/MarginContainer/HUDContainer"]
 visible = false

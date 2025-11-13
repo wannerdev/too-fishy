@@ -460,6 +460,10 @@ func process_dock(delta):
 				$Pivot/SmFishSubmarine/ak47_.visible = true # Check if dual AK47 was just enabled
 				$Pivot/SmFishSubmarine/ak47_0406195124_texture.shared_ammo = $Pivot/SmFishSubmarine/ak47_0406195124_texture.get_max_ammo();
 		if not GameState.isDocked:
+			if not GameState.shop_hide_hint_shown:
+				var hint_position := $PopupSpawnPosition.global_position if has_node("PopupSpawnPosition") else global_position + Vector3(0, 1.5, 0)
+				PopupManager.show_popup("Swim away from the dock to close the shop.", hint_position, Color.CYAN)
+				GameState.shop_hide_hint_shown = true
 			onDock()
 			GameState.isDocked = true
 	else:

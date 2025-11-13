@@ -3,7 +3,7 @@ extends PanelContainer
 @onready var container = $MarginContainer/HUDContainer
 @onready var current_stage_label = $MarginContainer/HUDContainer/StageInfo/VBoxContainer/StageValue
 @onready var health_bar = $MarginContainer/HUDContainer/HealthInfo/HealthBar
-@onready var pressure_headroom_bar = $MarginContainer/HUDContainer/PressureInfo/PressureBar
+@onready var pressure_headroom_bar = $MarginContainer/HUDContainer/PressureColumn/PressureInfo/PressureBar
 
 # Depth indicator
 @onready var depth_indicator = $MarginContainer/DepthIndicator
@@ -35,8 +35,12 @@ extends PanelContainer
 # These might not be needed if all styling is via .tscn, but keep for now.
 @onready var health_info_panel = $MarginContainer/HUDContainer/HealthInfo
 @onready var stage_info_panel = $MarginContainer/HUDContainer/StageInfo
-@onready var pressure_info_panel = $MarginContainer/HUDContainer/PressureInfo
+@onready var pressure_info_panel = $MarginContainer/HUDContainer/PressureColumn/PressureInfo
 @onready var cooldown_info_panel = $MarginContainer/HUDContainer/CooldownInfo
+
+# Pause toggle
+@onready var pause_toggle_button: Button = $MarginContainer/HUDContainer/PressureColumn/PauseToggleButton
+var pause_menu = null
 
 var _fill_style_override: StyleBoxFlat
 var _health_fill_override: StyleBoxFlat
@@ -44,6 +48,7 @@ var _harpoon_fill_override: StyleBoxFlat
 var _buoy_fill_override: StyleBoxFlat
 var _drone_fill_override: StyleBoxFlat
 var _ak47_fill_override: StyleBoxFlat
+var _pause_button_cached_state := false
 
 # Variables for smooth marker movement
 var current_marker_target_pos: float = 0
@@ -114,6 +119,11 @@ func _ready():
 	$MarginContainer.add_theme_constant_override("margin_right", 15)
 	$MarginContainer.add_theme_constant_override("margin_top", 15)
 	$MarginContainer.add_theme_constant_override("margin_bottom", 15)
+	
+	if is_instance_valid(pause_toggle_button):
+		pause_toggle_button.toggled.connect(_on_pause_toggle_button_toggled)
+	_ensure_pause_menu()
+	_sync_pause_button()
 
 func create_cooldown_style() -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
@@ -201,6 +211,37 @@ func _process(delta: float) -> void:
 						ak47_cd_bar.value = 1.0
 						_ak47_fill_override.bg_color = COLOR_COOLDOWN_READY
 						ak47_label.text = "AK47\n(%d/%d)" % [ak47.get_current_ammo(), max_ammo]
+	
+	_sync_pause_button()
+
+func _on_pause_toggle_button_toggled(button_pressed: bool) -> void:
+	_ensure_pause_menu()
+	if !is_instance_valid(pause_menu):
+		return
+	if button_pressed:
+		if !pause_menu.is_paused:
+			pause_menu.pause_game()
+	else:
+		if pause_menu.is_paused:
+			pause_menu.resume_game()
+	_sync_pause_button()
+
+func _sync_pause_button() -> void:
+	_ensure_pause_menu()
+	if !is_instance_valid(pause_toggle_button) or !is_instance_valid(pause_menu):
+		return
+	var paused_state := pause_menu.is_paused
+	if paused_state != _pause_button_cached_state:
+		pause_toggle_button.set_pressed_no_signal(paused_state)
+		_pause_button_cached_state = paused_state
+	var desired_text := "Resume" if paused_state else "Pause"
+	if pause_toggle_button.text != desired_text:
+		pause_toggle_button.text = desired_text
+
+func _ensure_pause_menu() -> void:
+	if is_instance_valid(pause_menu):
+		return
+	pause_menu = get_node_or_null("../CenterContainer/PauseMenu")
 
 # Update the depth indicator display with smooth movement
 func update_depth_indicator(delta: float) -> void:
