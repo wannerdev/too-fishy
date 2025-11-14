@@ -3,7 +3,7 @@ extends PanelContainer
 @onready var container = $MarginContainer/HUDContainer
 @onready var current_stage_label = $MarginContainer/HUDContainer/StageInfo/VBoxContainer/StageValue
 @onready var health_bar = $MarginContainer/HUDContainer/HealthInfo/HealthBar
-@onready var pressure_headroom_bar = $MarginContainer/HUDContainer/PressureInfo/PressureBar
+@onready var pressure_headroom_bar = $MarginContainer/HUDContainer/PressureStack/PressureInfo/PressureBar
 
 # Depth indicator
 @onready var depth_indicator = $MarginContainer/DepthIndicator
@@ -35,8 +35,9 @@ extends PanelContainer
 # These might not be needed if all styling is via .tscn, but keep for now.
 @onready var health_info_panel = $MarginContainer/HUDContainer/HealthInfo
 @onready var stage_info_panel = $MarginContainer/HUDContainer/StageInfo
-@onready var pressure_info_panel = $MarginContainer/HUDContainer/PressureInfo
+@onready var pressure_info_panel = $MarginContainer/HUDContainer/PressureStack/PressureInfo
 @onready var cooldown_info_panel = $MarginContainer/HUDContainer/CooldownInfo
+@onready var pause_button = $MarginContainer/HUDContainer/PressureStack/PauseToggle
 
 var _fill_style_override: StyleBoxFlat
 var _health_fill_override: StyleBoxFlat
@@ -44,6 +45,7 @@ var _harpoon_fill_override: StyleBoxFlat
 var _buoy_fill_override: StyleBoxFlat
 var _drone_fill_override: StyleBoxFlat
 var _ak47_fill_override: StyleBoxFlat
+var pause_menu: Control = null
 
 # Variables for smooth marker movement
 var current_marker_target_pos: float = 0
@@ -114,6 +116,7 @@ func _ready():
 	$MarginContainer.add_theme_constant_override("margin_right", 15)
 	$MarginContainer.add_theme_constant_override("margin_top", 15)
 	$MarginContainer.add_theme_constant_override("margin_bottom", 15)
+	_setup_pause_control()
 
 func create_cooldown_style() -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
@@ -202,6 +205,11 @@ func _process(delta: float) -> void:
 						_ak47_fill_override.bg_color = COLOR_COOLDOWN_READY
 						ak47_label.text = "AK47\n(%d/%d)" % [ak47.get_current_ammo(), max_ammo]
 
+	if is_instance_valid(pause_button):
+		pause_button.disabled = GameState.isDocked
+		if GameState.isDocked and pause_button.button_pressed:
+			pause_button.set_pressed_no_signal(false)
+
 # Update the depth indicator display with smooth movement
 func update_depth_indicator(delta: float) -> void:
 	if !is_instance_valid(marker_container) or !is_instance_valid(current_depth_marker) or !is_instance_valid(max_depth_marker):
@@ -230,3 +238,32 @@ func update_depth_indicator(delta: float) -> void:
 	# Apply smoothed positions to markers
 	current_depth_marker.position.x = current_marker_pos
 	max_depth_marker.position.x = max_marker_pos
+
+func _setup_pause_control() -> void:
+	var ui_root := get_parent()
+	if ui_root and ui_root.has_node("CenterContainer/PauseMenu"):
+		pause_menu = ui_root.get_node("CenterContainer/PauseMenu")
+	if is_instance_valid(pause_button):
+		pause_button.toggled.connect(_on_pause_button_toggled)
+	if pause_menu and pause_menu.has_signal("pause_state_changed"):
+		pause_menu.pause_state_changed.connect(_on_pause_state_changed)
+	if pause_menu and is_instance_valid(pause_button):
+		pause_button.set_pressed_no_signal(pause_menu.is_paused)
+
+func _on_pause_button_toggled(pressed: bool) -> void:
+	if GameState.isDocked:
+		if is_instance_valid(pause_button):
+			pause_button.set_pressed_no_signal(false)
+		return
+	if pause_menu:
+		if pressed and pause_menu.has_method("pause_game"):
+			pause_menu.pause_game()
+		elif not pressed and pause_menu.has_method("resume_game"):
+			pause_menu.resume_game()
+	else:
+		Input.action_press("esc")
+		Input.action_release("esc")
+
+func _on_pause_state_changed(paused: bool) -> void:
+	if is_instance_valid(pause_button):
+		pause_button.set_pressed_no_signal(paused)

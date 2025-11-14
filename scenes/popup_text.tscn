@@ -15,6 +15,6 @@ render_priority = 1
 outline_render_priority = 0
 text = "Lorem Ipsum"
 font = SubResource("SystemFont_tmlj2")
-font_size = 64
+font_size = 80
 outline_size = 8
 script = ExtResource("1_4m4vl")

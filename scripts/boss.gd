@@ -12,7 +12,7 @@ signal boss_spawned_signal(max_health)
 signal boss_defeated_signal
 signal boss_health_bar_hidden
 
-enum BossDialogSections {TUTORIAL1, TUTORIAL2, TUTORIAL3, TUTORIAL4, RESCUE_CALL, BOSS_INTRO, BOSS_KILLS_FRIEND, FRIEND_RESCUED, WIN, BOSS_DEFEATED, POST_INTRO_RESCUE, AK47_UNLOCKED}
+enum BossDialogSections {TUTORIAL1, TUTORIAL2, TUTORIAL3, TUTORIAL4, RESCUE_CALL, BOSS_INTRO, BOSS_KILLS_FRIEND, FRIEND_RESCUED, WIN, BOSS_DEFEATED, POST_INTRO_RESCUE, AK47_UNLOCKED, DOCK_HINT}
 
 var boss_dialog_from = {
 	BossDialogSections.TUTORIAL1: "John",
@@ -27,6 +27,7 @@ var boss_dialog_from = {
 	BossDialogSections.WIN: "Too Fishy",
 	BossDialogSections.POST_INTRO_RESCUE: "John",
 	BossDialogSections.AK47_UNLOCKED: "John",
+	BossDialogSections.DOCK_HINT: "John",
 }
 
 var dialog_depth_map = {

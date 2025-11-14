@@ -79,6 +79,7 @@ var health = 100.0
 var headroom = 0
 var death_screen = false
 var paused = true
+var john_dock_hint_shown := false
 
 var inventory: Inv = Inv.new()
 
@@ -168,6 +169,7 @@ func start_intro_mission():
 	is_first_time_player = true
 	intro_mission_completed = false
 	boss_encountered = false  # Reset boss encounter flag for intro mission
+	john_dock_hint_shown = false
 	
 	# Reset game state properly for intro mission
 	death_screen = false
@@ -239,6 +241,7 @@ func complete_intro_mission(death_position: Vector3):
 	print("Completing intro mission at position: ", death_position)
 	friend_death_position = death_position
 	intro_mission_completed = true
+	john_dock_hint_shown = false
 	# Reset upgrades to 0 for normal player
 	reset_upgrades()
 	# Reset money to starting amount
@@ -273,6 +276,7 @@ func start_normal_mode():
 	is_first_time_player = false
 	intro_mission_completed = true  # Intro mission is skipped in normal mode
 	boss_encountered = false  # Reset boss encounter flag in normal mode
+	john_dock_hint_shown = false
 	
 	# Initialize normal game state
 	death_screen = false
@@ -333,3 +337,9 @@ func restore_ui_after_intro_mission():
 			upgrade_menu.refresh_all_upgrades()
 		else:
 			print("Upgrade menu not found or missing rebuild method")
+
+func ensure_dock_hint() -> void:
+	if john_dock_hint_shown or is_intro():
+		return
+	john_dock_hint_shown = true
+	Boss.setDialogStage(Boss.BossDialogSections.DOCK_HINT)
