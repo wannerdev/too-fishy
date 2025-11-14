@@ -68,22 +68,22 @@ func _should_show_controls() -> bool:
 
 func _initialize_buttons() -> void:
 	buttons.clear()
-	buttons["harpoon"] = _make_button("throw", "action", "Harpoon", action_button_size, COLOR_PRIMARY_LIGHT)
-	buttons["shoot"] = _make_button("shoot", "action", "Gun", action_button_size * 0.9, COLOR_PRIMARY, GameState.Upgrade.AK47)
-	buttons["pickaxe"] = _make_button("swing_pickaxe", "action", "Pick", action_button_size * 0.85, COLOR_PRIMARY_DARK, GameState.Upgrade.PICKAXE_UNLOCKED, 0.0, true)
+	buttons["harpoon"] = _make_button("throw", "action", "🪝", action_button_size, COLOR_PRIMARY_LIGHT)
+	buttons["shoot"] = _make_button("shoot", "action", "✹", action_button_size * 0.9, COLOR_PRIMARY, GameState.Upgrade.AK47)
+	buttons["pickaxe"] = _make_button("swing_pickaxe", "action", "⛏", action_button_size * 0.85, COLOR_PRIMARY_DARK, GameState.Upgrade.PICKAXE_UNLOCKED, 0.0, true)
 
-	buttons["buoy"] = _make_button("upgrade_surface_buoy", "ability", "Buoy", ability_button_size, COLOR_ACCENT, GameState.Upgrade.SURFACE_BUOY, 0.0, true)
-	buttons["drone"] = _make_button("upgrade_drone_selling", "ability", "Drone", ability_button_size, COLOR_ACCENT_LIGHT, GameState.Upgrade.DRONE_SELLING, hold_threshold_default, true)
-	buttons["save"] = _make_button("inventory_save", "ability", "Save", ability_button_size, COLOR_PRIMARY_LIGHT, GameState.Upgrade.INVENTORY_SAVE, hold_threshold_default, true)
+	buttons["buoy"] = _make_button("upgrade_surface_buoy", "ability", "⚓", ability_button_size, COLOR_ACCENT, GameState.Upgrade.SURFACE_BUOY, 0.0, true)
+	buttons["drone"] = _make_button("upgrade_drone_selling", "ability", "✈", ability_button_size, COLOR_ACCENT_LIGHT, GameState.Upgrade.DRONE_SELLING, hold_threshold_default, true)
+	buttons["save"] = _make_button("inventory_save", "ability", "💾", ability_button_size, COLOR_PRIMARY_LIGHT, GameState.Upgrade.INVENTORY_SAVE, hold_threshold_default, true)
 
-	buttons["inventory"] = _make_button("inv_toggle", "utility", "Inventory", utility_button_size, COLOR_PRIMARY, -1, 0.0, true)
-	buttons["pause"] = _make_button("esc", "utility", "Pause", utility_button_size * Vector2(0.85, 0.85), COLOR_PRIMARY_DARK, -1, 0.0, true)
+	buttons["inventory"] = _make_button("inv_toggle", "utility", "🎒", utility_button_size, COLOR_PRIMARY, -1, 0.0, true)
+	buttons["pause"] = _make_button("esc", "utility", "⏯", utility_button_size * Vector2(0.85, 0.85), COLOR_PRIMARY_DARK, -1, 0.0, true)
 
-func _make_button(action: String, group: String, label: String, size: Vector2, color: Color, requires_upgrade: int = -1, hold_threshold: float = 0.0, auto_release: bool = false) -> Dictionary:
+func _make_button(action: String, group: String, glyph: String, size: Vector2, color: Color, requires_upgrade: int = -1, hold_threshold: float = 0.0, auto_release: bool = false) -> Dictionary:
 	return {
 		"action": action,
 		"group": group,
-		"label": label,
+		"glyph": glyph,
 		"size": size,
 		"color": color,
 		"requires_upgrade": requires_upgrade,
@@ -283,6 +283,11 @@ func _is_button_available(name: String) -> bool:
 	if not buttons.has(name):
 		return false
 	var data: Dictionary = buttons[name]
+	if name == "harpoon":
+		if GameState.is_intro():
+			return false
+		if GameState.upgrades.has(GameState.Upgrade.HARPOON_ROTATION) and GameState.upgrades[GameState.Upgrade.HARPOON_ROTATION] > 0:
+			return false
 	if name == "drone" and GameState.is_intro():
 		return false
 	if data.requires_upgrade != -1:
@@ -377,7 +382,7 @@ func _draw():
 		draw_circle(joystick_rest_position, joystick_handle_radius, handle_color)
 
 	var font := get_theme_default_font()
-	var font_size := get_theme_default_font_size()
+	var font_size := int(get_theme_default_font_size() * 1.2)
 	for name in buttons.keys():
 		var data: Dictionary = buttons[name]
 		if not data.visible or data.rect.size == Vector2.ZERO:
@@ -390,7 +395,7 @@ func _draw():
 		draw_circle(center, radius, fill_color)
 		draw_arc(center, radius, 0.0, TAU, 48, fill_color.darkened(0.25), 4.5)
 		if font:
-			var text: String = data.label
-			var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+			var glyph: String = data.get("glyph", "")
+			var text_size: Vector2 = font.get_string_size(glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 			var text_pos: Vector2 = center - text_size * 0.5 + Vector2(0, text_size.y * 0.35)
-			draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.1, 0.1, 0.1, 1.0))
+			draw_string(font, text_pos, glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.1, 0.1, 0.1, 1.0))

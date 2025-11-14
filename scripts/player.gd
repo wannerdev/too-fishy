@@ -462,6 +462,7 @@ func process_dock(delta):
 		if not GameState.isDocked:
 			onDock()
 			GameState.isDocked = true
+			GameState.ensure_dock_hint()
 	else:
 		if GameState.isDocked:
 			GameState.isDocked = false

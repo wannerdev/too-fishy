@@ -1,5 +1,7 @@
 extends Control
 
+signal pause_state_changed(paused: bool)
+
 @onready var save_menu = $SaveMenu
 @onready var settings_menu = $SettingsMenu
 @onready var panel = $Panel
@@ -63,6 +65,7 @@ func pause_game():
 	show_pause_elements(true)
 	get_tree().paused = true
 	is_paused = true
+	pause_state_changed.emit(true)
 
 func resume_game():
 	# Hide pause menu and resume the game
@@ -71,6 +74,7 @@ func resume_game():
 	settings_menu.hide()
 	get_tree().paused = false
 	is_paused = false
+	pause_state_changed.emit(false)
 
 func show_pause_elements(show_elements: bool):
 	if show_elements:
