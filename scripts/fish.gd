@@ -191,6 +191,14 @@ mDifficulty, mMin_weight, mMax_weight, price_weight_multiplier, mType, weight_mu
 	self.type = mType
 	self.is_shiny = mIs_shiny
 	
+	# In infinite mode, scale down fish prices significantly past 600m depth
+	if GameState.is_infinite() and abs(mStart_position.y) > 600:
+		var depth_factor = abs(mStart_position.y) - 600
+		# Scale down price more aggressively the deeper you go
+		# At 700m: 0.5x, at 800m: 0.25x, at 1000m: 0.1x, etc.
+		var scale_factor = max(0.1, 1.0 - (depth_factor / 400.0))
+		self.price = round(self.price * scale_factor)
+	
 	scale = get_scale_for_weight(mMax_weight, mMin_weight, weight)
 	
 	if self.is_shiny:

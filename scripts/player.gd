@@ -669,9 +669,27 @@ func activate_selling_drone():
 	drone.scale = Vector3(0.5, 0.5, 0.5) # Make it a bit smaller than regular fish
 	get_parent().add_child(drone)
 	
+	# Apply drone color if upgrade is purchased
+	var drone_color_level = GameState.upgrades[GameState.Upgrade.DRONE_COLOR]
+	var drone_color = Color(0.8, 0.8, 0.2) # Default golden color
+	if drone_color_level > 0:
+		var colors = [
+			Color(1.0, 0.2, 0.2),    # Red
+			Color(0.2, 1.0, 0.2),    # Green
+			Color(0.2, 0.2, 1.0),    # Blue
+			Color(1.0, 1.0, 0.2),    # Yellow
+			Color(1.0, 0.2, 1.0),    # Magenta
+			Color(0.2, 1.0, 1.0),    # Cyan
+			Color(1.0, 0.5, 0.2),    # Orange
+			Color(0.5, 0.2, 1.0),    # Purple
+			Color(1.0, 0.8, 0.2),    # Gold
+			Color(0.8, 0.8, 0.8),    # Silver
+		]
+		drone_color = colors[min(drone_color_level - 1, colors.size() - 1)]
+	
 	# Create visual effect for the drone
 	var particles = $dronefart.duplicate()
-	particles.color = Color(0.8, 0.8, 0.2) # Give it a golden color
+	particles.color = drone_color
 	drone.add_child(particles)
 	particles.emitting = true
 	
@@ -870,4 +888,53 @@ func switch_to_normal_submarine():
 	# Reset upgrades to normal (will be handled by GameState.complete_intro_mission)
 	# No need to reset here since that function handles the upgrade reset
 	
+	# Apply cosmetic color if upgrade is purchased
+	apply_submarine_color()
+	
 	print("Normal submarine appearance restored")
+
+func apply_submarine_color():
+	"""Apply cosmetic color to submarine based on upgrade level"""
+	# Don't apply color during intro mission (friend submarine)
+	if GameState.is_intro() or is_friend_submarine:
+		return
+	
+	var color_level = GameState.upgrades[GameState.Upgrade.SUBMARINE_COLOR]
+	if color_level == 0:
+		return  # No color upgrade
+	
+	# Define color palette for different levels
+	var colors = [
+		Color(1.0, 0.2, 0.2),    # Red
+		Color(0.2, 1.0, 0.2),    # Green
+		Color(0.2, 0.2, 1.0),    # Blue
+		Color(1.0, 1.0, 0.2),    # Yellow
+		Color(1.0, 0.2, 1.0),    # Magenta
+		Color(0.2, 1.0, 1.0),    # Cyan
+		Color(1.0, 0.5, 0.2),    # Orange
+		Color(0.5, 0.2, 1.0),    # Purple
+		Color(1.0, 0.8, 0.2),    # Gold
+		Color(0.8, 0.8, 0.8),    # Silver
+	]
+	
+	var selected_color = colors[min(color_level - 1, colors.size() - 1)]
+	
+	# Apply color to submarine material
+	if has_node("Pivot/SmFishSubmarine"):
+		var submarine_mesh = $Pivot/SmFishSubmarine
+		var material = submarine_mesh.get_surface_override_material(0)
+		
+		if material == null:
+			# Create a new material if none exists
+			material = StandardMaterial3D.new()
+			# Try to load original textures
+			material.albedo_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_BaseColor.png")
+			material.metallic_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_Metallic.png")
+			material.roughness_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_Roughness.png")
+			material.normal_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_Normal.png")
+			material.height_texture = load("res://textures/sub/SM_FishSubmarine_initialShadingGroup_Height.png")
+		
+		# Apply color tint
+		material.albedo_color = selected_color
+		submarine_mesh.set_surface_override_material(0, material)
+		print("Applied submarine color level ", color_level, ": ", selected_color)
