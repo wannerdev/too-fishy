@@ -24,7 +24,7 @@ func _process(_delta: float) -> void:
 		if camera and camera.has_method("change_section_environment"):
 			camera.change_section_environment(GameState.Stage.HOT)
 	
-	if player.position.y < (lastSpawned) && GameState.current_game_mode == GameState.GameMode.NORMAL:
+	if player.position.y < (lastSpawned) && (GameState.current_game_mode == GameState.GameMode.NORMAL || GameState.current_game_mode == GameState.GameMode.INFINITE):
 		spawnNewSection(lastSpawned - sectionHeight)
 	if GameState.maxDepthReached > Boss.boss_spawn_height && Boss.boss_spawned == false && Boss.boss_defeated_permanently == false:
 		var boss_spawn_loc = (GameState.maxDepthReached * -1) - 25
@@ -146,22 +146,57 @@ func spawn_intro_mission_sections():
 func spawnNewSection(mPosition: float):
 	var newSection = section.instantiate()
 	newSection.position.y = mPosition
-	var i = snapped(-mPosition, 100)
-	i = min(i, GameState.depthStageMap.keys()[len(GameState.depthStageMap.keys())-1])
-	newSection.sectionType = GameState.depthStageMap[i]
-	newSection.lastSectionType = last_section_type
-	
-	# Give section a meaningful name based on its type and depth
 	var depth_meters = int(abs(mPosition))
-	var stage_name = GameState.Stage.keys()[GameState.depthStageMap[i]]
-	newSection.name = "Section_%s_%dm" % [stage_name, depth_meters]
 	
+	# Handle infinite mode - continue with VOID stage past 600m
+	if GameState.is_infinite() and depth_meters > 600:
+		newSection.sectionType = GameState.Stage.VOID
+		# Use previous section type for proper transitions
+		if last_section_type == GameState.Stage.VOID:
+			newSection.lastSectionType = GameState.Stage.VOID
+		else:
+			# Transition from LAVA to VOID
+			newSection.lastSectionType = GameState.Stage.LAVA
+		newSection.name = "Section_VOID_%dm" % depth_meters
+	else:
+		# Normal section generation - ensure no gaps
+		var i = snapped(-mPosition, 100)
+		# Ensure we don't exceed the maximum depth threshold
+		var max_depth_key = GameState.depthStageMap.keys()[len(GameState.depthStageMap.keys())-1]
+		i = min(i, max_depth_key)
+		
+		# Find the appropriate stage for this depth
+		var sorted_depths = GameState.depthStageMap.keys()
+		sorted_depths.sort()
+		var selected_stage = GameState.Stage.SURFACE
+		
+		# Find the highest threshold we meet or exceed
+		for depth_threshold in sorted_depths:
+			if i >= depth_threshold:
+				selected_stage = GameState.depthStageMap[depth_threshold]
+		
+		newSection.sectionType = selected_stage
+		# Set last section type for proper transitions
+		# If this is the first section or we're at a transition point, use previous
+		if last_section_type == GameState.Stage.SURFACE and selected_stage != GameState.Stage.SURFACE:
+			# First transition - use SURFACE as last
+			newSection.lastSectionType = GameState.Stage.SURFACE
+		else:
+			# Use the previous section type for continuity
+			newSection.lastSectionType = last_section_type
+		
+		# Give section a meaningful name based on its type and depth
+		var stage_name = GameState.Stage.keys()[selected_stage]
+		newSection.name = "Section_%s_%dm" % [stage_name, depth_meters]
+	
+	# Update lastSpawned BEFORE adding to scene to prevent gaps
 	lastSpawned = mPosition
 	GameState.fishes_lower_boarder = lastSpawned - sectionHeight/2 - 1
 	if mPosition <= -50:
 		newSection.setDepth(mPosition * -1)
 	add_child(newSection)
-	last_section_type = GameState.depthStageMap[i]
+	# Update last_section_type AFTER adding section
+	last_section_type = newSection.sectionType
 
 func spawnBoss(mPosition: float):
 	print("Spawn boss", mPosition)

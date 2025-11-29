@@ -25,6 +25,10 @@ var categories = {
 		GameState.Upgrade.SURFACE_BUOY,
 		GameState.Upgrade.INVENTORY_SAVE,
 		GameState.Upgrade.DRONE_SELLING
+	],
+	"COSMETIC": [
+		GameState.Upgrade.SUBMARINE_COLOR,
+		GameState.Upgrade.DRONE_COLOR
 	]
 }
 
@@ -283,6 +287,15 @@ func on_upgrade_pressed(key, info_label):
 		
 		# First update this button's state
 		update_button_state(key)
+		
+		# Handle cosmetic upgrades
+		if key == GameState.Upgrade.SUBMARINE_COLOR or key == GameState.Upgrade.DRONE_COLOR:
+			if GameState.player_node:
+				if key == GameState.Upgrade.SUBMARINE_COLOR:
+					GameState.player_node.apply_submarine_color()
+				elif key == GameState.Upgrade.DRONE_COLOR:
+					# Drone color will be applied when drone is spawned
+					pass
 		
 		# Then update affordability of all other buttons since money has changed
 		for upgrade_key in buttons:
@@ -558,6 +571,12 @@ func _setup_upgrade_menu():
 			continue
 		filtered_equipment.append(item)
 	
+	# Filter COSMETIC category to only show if boss has been defeated
+	var filtered_cosmetic = []
+	if GameState.is_boss_defeated():
+		for item in categories["COSMETIC"]:
+			filtered_cosmetic.append(item)
+	
 	# Create categories
 	var equipment_column = create_category_column("EQUIPMENT", filtered_equipment)
 	var performance_column = create_category_column("PERFORMANCE", categories["PERFORMANCE"])
@@ -566,6 +585,11 @@ func _setup_upgrade_menu():
 	content_container.add_child(equipment_column)
 	content_container.add_child(performance_column)
 	content_container.add_child(utility_column)
+	
+	# Add cosmetic column if boss is defeated
+	if filtered_cosmetic.size() > 0:
+		var cosmetic_column = create_category_column("COSMETIC", filtered_cosmetic)
+		content_container.add_child(cosmetic_column)
 	
 	# Initialize money display
 	update_money_display()

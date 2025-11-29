@@ -25,6 +25,8 @@ var upgradeNames = {
 	GameState.Upgrade.SURFACE_BUOY: "Emergency Buoy",
 	GameState.Upgrade.INVENTORY_SAVE: "Inventory Insurance",
 	GameState.Upgrade.DRONE_SELLING: "Remote Selling Drone",
+	GameState.Upgrade.SUBMARINE_COLOR: "Submarine Color",
+	GameState.Upgrade.DRONE_COLOR: "Drone Color",
 }
 
 var boss_dialog_lines = {
@@ -58,5 +60,7 @@ var upgradeDescriptions = {
 							  GameState.Upgrade.INVENTORY_MANAGEMENT: "Automatically replaces less valuable fish with more expensive ones when your inventory is full.",
 							  GameState.Upgrade.SURFACE_BUOY: "Provides an emergency buoy that quickly returns you to the surface when you press B.",
 							  GameState.Upgrade.INVENTORY_SAVE: "Insures your inventory, preventing loss of collected fish when you die.",
-							  GameState.Upgrade.DRONE_SELLING: "Deploys a drone that sells your inventory remotely when you press Q, without returning to dock."
+							  GameState.Upgrade.DRONE_SELLING: "Deploys a drone that sells your inventory remotely when you press Q, without returning to dock.",
+							  GameState.Upgrade.SUBMARINE_COLOR: "Changes the color of your submarine. Each level unlocks a new color variant. Only affordable by exploring the depths below the boss!",
+							  GameState.Upgrade.DRONE_COLOR: "Changes the color of your selling drone. Each level unlocks a new color variant. Only affordable by exploring the depths below the boss!"
 						  }

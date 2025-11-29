@@ -4,7 +4,7 @@ signal inventory_updated
 
 #DEFINITIONS
 enum Stage {SURFACE, DEEP, DEEPER, SUPERDEEP, HOT, LAVA, VOID}
-enum GameMode {NORMAL, INTRO_MISSION}
+enum GameMode {NORMAL, INTRO_MISSION, INFINITE}
 var depthStageMap = {
 	0: Stage.SURFACE,
 	100: Stage.DEEP,
@@ -15,7 +15,7 @@ var depthStageMap = {
 	600: Stage.VOID
 }
 
-enum Upgrade {CARGO_SIZE, DEPTH_RESISTANCE, PICKAXE_UNLOCKED, VERT_SPEED, HOR_SPEED, LAMP_UNLOCKED, AK47, DUALAK47, HARPOON, HARPOON_ROTATION, INVENTORY_MANAGEMENT, SURFACE_BUOY, INVENTORY_SAVE, DRONE_SELLING}
+enum Upgrade {CARGO_SIZE, DEPTH_RESISTANCE, PICKAXE_UNLOCKED, VERT_SPEED, HOR_SPEED, LAMP_UNLOCKED, AK47, DUALAK47, HARPOON, HARPOON_ROTATION, INVENTORY_MANAGEMENT, SURFACE_BUOY, INVENTORY_SAVE, DRONE_SELLING, SUBMARINE_COLOR, DRONE_COLOR}
 var upgradeCosts = {
 	Upgrade.CARGO_SIZE: 25,
 	Upgrade.DEPTH_RESISTANCE: 50,
@@ -30,7 +30,9 @@ var upgradeCosts = {
 	Upgrade.INVENTORY_MANAGEMENT: 400,
 	Upgrade.SURFACE_BUOY: 1000,
 	Upgrade.INVENTORY_SAVE: 250,
-	Upgrade.DRONE_SELLING: 300
+	Upgrade.DRONE_SELLING: 300,
+	Upgrade.SUBMARINE_COLOR: 50000,
+	Upgrade.DRONE_COLOR: 30000
 }
 
 var maxUpgrades = {
@@ -47,7 +49,9 @@ var maxUpgrades = {
 	Upgrade.INVENTORY_MANAGEMENT: 1,
 	Upgrade.SURFACE_BUOY: 1,
 	Upgrade.INVENTORY_SAVE: 1,
-	Upgrade.DRONE_SELLING: 1
+	Upgrade.DRONE_SELLING: 1,
+	Upgrade.SUBMARINE_COLOR: 10,
+	Upgrade.DRONE_COLOR: 10
 }
 
 #STATE
@@ -65,7 +69,9 @@ var upgrades = {
 	Upgrade.INVENTORY_MANAGEMENT: 0,
 	Upgrade.SURFACE_BUOY: 0,
 	Upgrade.INVENTORY_SAVE: 0,
-	Upgrade.DRONE_SELLING: 0
+	Upgrade.DRONE_SELLING: 0,
+	Upgrade.SUBMARINE_COLOR: 0,
+	Upgrade.DRONE_COLOR: 0
 }
 var depth = 0
 var maxDepthReached = 0
@@ -91,17 +97,15 @@ var is_first_time_player = true
 var intro_mission_completed = false
 var friend_death_position: Vector3 = Vector3.ZERO
 var boss_encountered = false  # Flag to track if player has seen the boss for the first time
+var infinite_mode_enabled = false  # Flag to track if infinite mode is active
 
 func _ready():
 	# Connect to inventory's methods to emit the inventory_updated signal
 	inventory.connect_signals_to_gamestate(self)
 	
-	#  automatically start intro mission for first-time players (if enabled)
-	if enable_intro_mission and is_first_time_player and not intro_mission_completed:
-		start_intro_mission()
-	else:
-		# If intro mission is disabled, initialize normal mode
-		start_normal_mode()
+	# Show game mode selection UI
+	await get_tree().process_frame
+	show_game_mode_selection()
 
 func _process(_delta):
 	# Ensure game is not paused during intro mission
@@ -124,6 +128,11 @@ func setDepth(d: int):
 	# Calculate the appropriate stage based on depth
 	var snapped_depth = snapped(d, 100)
 	var new_stage = Stage.SURFACE # Default to SURFACE for shallow depths
+	
+	# In infinite mode, continue using VOID stage past 600m
+	if infinite_mode_enabled and d > 600:
+		playerInStage = Stage.VOID
+		return
 	
 	# Sort depth thresholds and find the highest one that we meet or exceed
 	var sorted_depths = depthStageMap.keys()
@@ -266,6 +275,83 @@ func reset_upgrades():
 
 func is_intro() -> bool:
 	return current_game_mode == GameMode.INTRO_MISSION
+
+func is_infinite() -> bool:
+	return infinite_mode_enabled
+
+func start_infinite_mode():
+	print("Starting infinite mode")
+	infinite_mode_enabled = true
+	current_game_mode = GameMode.INFINITE
+	is_first_time_player = false
+	intro_mission_completed = true
+	boss_encountered = false
+	
+	# Reset game state for infinite mode
+	death_screen = false
+	paused = false
+	health = 100
+	isDocked = false
+	
+	# Set player to surface level
+	playerInStage = Stage.SURFACE
+	depth = 0
+	maxDepthReached = 0
+	
+	# Initialize Boss system
+	Boss.boss_spawned = false
+	Boss.boss_defeated_permanently = false
+	Boss.boss_dialog_displayed = true
+	Boss.boss_dialog_section = Boss.BossDialogSections.TUTORIAL1
+	Boss.boss_dialog_index = 0
+	Boss.boss_health = Boss.boss_max_health
+	
+	# Wait for player node to be available, then set position to surface
+	await get_tree().process_frame
+	if player_node:
+		player_node.position = Vector3(-8, 0, 0.33)  # Surface position
+	
+	# Reset tree pause state
+	get_tree().paused = false
+	
+	print("Infinite mode setup complete")
+
+func show_game_mode_selection():
+	"""Show the game mode selection UI"""
+	# Only show if we haven't started a game mode yet
+	if current_game_mode != GameMode.NORMAL and current_game_mode != GameState.GameMode.INFINITE:
+		var ui_node = get_node_or_null("/root/Node3D/UI")
+		if ui_node:
+			# Check if game mode selection already exists
+			var mode_selection = ui_node.find_child("GameModeSelection", true, false)
+			if not mode_selection:
+				# Create game mode selection UI
+				mode_selection = load("res://scripts/ui/game_mode_selection.gd").new()
+				mode_selection.name = "GameModeSelection"
+				mode_selection.mode_selected.connect(_on_game_mode_selected)
+				ui_node.add_child(mode_selection)
+			
+			mode_selection.show_menu()
+		else:
+			# Fallback: start intro mission if UI not found
+			if enable_intro_mission and is_first_time_player and not intro_mission_completed:
+				start_intro_mission()
+			else:
+				start_normal_mode()
+	else:
+		# Game mode already selected, don't show selection
+		pass
+
+func _on_game_mode_selected(mode: GameState.GameMode):
+	"""Handle game mode selection"""
+	if mode == GameMode.NORMAL:
+		# For normal mode, check if we should start intro mission
+		if enable_intro_mission and is_first_time_player and not intro_mission_completed:
+			start_intro_mission()
+		else:
+			start_normal_mode()
+	elif mode == GameMode.INFINITE:
+		start_infinite_mode()
 
 func start_normal_mode():
 	print("Starting normal mode")
