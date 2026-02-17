@@ -281,7 +281,7 @@ func _input(_event):
 			PopupManager.show_popup(popup_text, $PopupSpawnPosition.global_position, Color.GREEN)
 	
 	# Drone selling functionality - sell inventory remotely when Q key is pressed
-	if Input.is_action_just_pressed("upgrade_drone_selling") and GameState.upgrades[GameState.Upgrade.DRONE_SELLING] > 0:
+	if Input.is_action_just_pressed("upgrade_drone_selling") and GameState.upgrades[GameState.Upgrade.DRONE_SELLING] > 0 and !GameState.is_intro():
 		if !GameState.isDocked and !GameState.paused and GameState.inventory.items.size() > 0 and cooldown_timer_drone.time_left == 0:
 			activate_selling_drone()
 	
@@ -660,6 +660,10 @@ func add_trauma(trauma_amount: float):
 	trauma = clamp(trauma + trauma_amount, 0.0, 1.0)
 
 func activate_selling_drone():
+	# Drone selling is disabled during intro mission (friend rescue flow)
+	if GameState.is_intro():
+		return
+	
 	var drone_scene = preload("res://scenes/mobs/drone.tscn")
 	var drone = drone_scene.instantiate()
 	

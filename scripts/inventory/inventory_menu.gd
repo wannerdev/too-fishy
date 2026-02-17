@@ -114,7 +114,8 @@ func refresh_inventory():
 		fish_item_ui.fish_released.connect(_on_fish_released)
 	
 	# Update sell drone button visibility and state
-	if GameState.upgrades[GameState.Upgrade.DRONE_SELLING] > 0:
+	# Disabled during intro mission to avoid spawning drone in intro mode
+	if GameState.upgrades[GameState.Upgrade.DRONE_SELLING] > 0 and !GameState.is_intro():
 		sell_drone_button.visible = true
 		sell_drone_button.disabled = inventory.items.size() == 0
 	else:
@@ -124,8 +125,8 @@ func _on_close_button_pressed():
 	close()
 
 func _on_sell_drone_pressed():
-	# Only process if drone selling upgrade is purchased
-	if GameState.upgrades[GameState.Upgrade.DRONE_SELLING] > 0:
+	# Only process if drone selling upgrade is purchased and we're not in intro mission
+	if GameState.upgrades[GameState.Upgrade.DRONE_SELLING] > 0 and !GameState.is_intro():
 		var sold_amount = GameState.inventory.sellItems()
 		
 		if sold_amount > 0:
