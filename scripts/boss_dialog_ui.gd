@@ -1,6 +1,7 @@
 extends PanelContainer
 
 var john_texture = preload("res://textures/characters/john.png")
+var blobfish_texture = preload("res://textures/icons/boss_icon.png")
 
 func _ready() -> void:
 	# Set initial size based on viewport
@@ -44,8 +45,12 @@ func _process(_delta: float) -> void:
 		
 		# Show/hide profile picture based on sender
 		var profile_picture = $VBoxContainer/HeaderContainer/ProfilePicture
-		if Boss.boss_dialog_from[Boss.boss_dialog_section] == "John":
+		var sender = Boss.boss_dialog_from[Boss.boss_dialog_section]
+		if sender == "John":
 			profile_picture.texture = john_texture
+			profile_picture.visible = true
+		elif sender == "Blobfish" or sender == "???":
+			profile_picture.texture = blobfish_texture
 			profile_picture.visible = true
 		else:
 			profile_picture.visible = false
