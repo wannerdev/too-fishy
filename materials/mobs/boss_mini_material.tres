@@ -7,13 +7,13 @@
 [ext_resource type="Texture2D" path="res://textures/fishes/fishies painter_initialShadingGroup_Roughness.png" id="5_rough"]
 
 [resource]
-albedo_color = Color(0.95, 0.78, 0.90, 1)
+albedo_color = Color(0.99, 0.84, 0.90, 1)
 albedo_texture = ExtResource("1_base")
-roughness = 0.72
+roughness = 0.62
 roughness_texture = ExtResource("5_rough")
 emission_enabled = true
-emission = Color(0.55, 0.25, 0.48, 1)
-emission_energy_multiplier = 1.25
+emission = Color(0.72, 0.33, 0.58, 1)
+emission_energy_multiplier = 1.45
 emission_texture = ExtResource("2_emiss")
 normal_enabled = true
 normal_texture = ExtResource("4_normal")

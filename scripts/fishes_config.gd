@@ -62,15 +62,22 @@ var fishConfigMap = {
 		icon = preload("res://textures/icons/spikey_fish.png")
 	},
 	FishType.BOSS_MINI: {
-		# Mini-blobfish balancing pass: keep it rewarding, but faster and less tanky.
+		# Mini-blobfish balancing pass: still valuable, but less spiky in spawn pressure.
 		weight_min = 3,
 		weight_max = 8,
-		price_weight_multiplier = 12,
-		speed_min = 1.1,
-		speed_max = 2.8,
+		price_weight_multiplier = 11,
+		speed_min = 1.3,
+		speed_max = 2.5,
 		difficulty = 10,
-		# Prevent mini-fish over-clustering in one section.
+		requires_boss_defeat = true,
+		spawn_during_intro = false,
+		# Only allow mini fish once the run has progressed deep enough.
+		min_required_depth = 520,
+		# Prevent mini-fish over-clustering.
 		max_active_per_section = 1,
+		max_active_global = 2,
+		# Cooldown to avoid immediate re-rolls right after one gets caught.
+		spawn_cooldown_sec = 55,
 		scene = preload("res://scenes/mobs/boss_mini_fish.tscn"),
 		icon = preload("res://textures/icons/boss_icon.png")
 	}
@@ -133,10 +140,10 @@ var fishSectionMap = {
 		shiny_rate = .06,
 		weight_multiplier = 1.15,
 		spawnRates = {
-			FishType.ANGLER: .5,
-			FishType.SMALLY: .25,
-			FishType.SPIKEY: .17,
-			FishType.BOSS_MINI: .08
+			FishType.ANGLER: .53,
+			FishType.SMALLY: .24,
+			FishType.SPIKEY: .18,
+			FishType.BOSS_MINI: .05
 		}
 	},
 	GameState.Stage.VOID: {
