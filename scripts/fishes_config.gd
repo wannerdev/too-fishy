@@ -69,6 +69,8 @@ var fishConfigMap = {
 		speed_min = 1.1,
 		speed_max = 2.8,
 		difficulty = 10,
+		# Prevent mini-fish over-clustering in one section.
+		max_active_per_section = 1,
 		scene = preload("res://scenes/mobs/boss_mini_fish.tscn"),
 		icon = preload("res://textures/icons/boss_icon.png")
 	}

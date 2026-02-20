@@ -46,26 +46,47 @@ func spawn_fish(spawn_all: bool = false):
 	if !FishesConfig.fishSectionMap.has(sectionType):
 		print("No fish spawns defined for ", GameState.Stage.keys()[sectionType])
 		return
-	var amount = len(get_tree().get_nodes_in_group("fishes").filter(func(x): return x.home == self.get_instance_id()))
+	var existing_fishes = get_tree().get_nodes_in_group("fishes").filter(func(x): return x.home == self.get_instance_id())
+	var amount = len(existing_fishes)
+	var fish_type_counts := {}
+	for fish_node in existing_fishes:
+		if fish_node == null:
+			continue
+		var fish_type = fish_node.get("type")
+		if fish_type == null:
+			continue
+		fish_type_counts[fish_type] = fish_type_counts.get(fish_type, 0) + 1
+
 	while amount < FishesConfig.fishSectionMap[sectionType].max_fish_amount:
 		var r = randf()
 		var spawn_pos = Vector3(randf_range(spawn_marker_a.position.x, spawn_marker_b.position.x),
 							randf_range(spawn_marker_a.position.y, spawn_marker_b.position.y), 1)
 		spawn_pos.z = -0.3
+
 		# Get available fish types (excluding boss mini if boss not defeated)
+		# and enforcing optional per-section caps from fish config.
 		var available_fish_types = {}
 		var total_spawn_rate = 0.0
-		
 		for type in FishesConfig.fishSectionMap[sectionType].spawnRates:
 			# Skip boss mini fish if boss hasn't been defeated yet
 			if type == FishesConfig.FishType.BOSS_MINI and not GameState.is_boss_defeated():
 				continue
+
+			var fish_config = FishesConfig.fishConfigMap[type]
+			if fish_config.has("max_active_per_section"):
+				var type_cap = int(fish_config.max_active_per_section)
+				if type_cap >= 0 and fish_type_counts.get(type, 0) >= type_cap:
+					continue
+
 			available_fish_types[type] = FishesConfig.fishSectionMap[sectionType].spawnRates[type]
 			total_spawn_rate += FishesConfig.fishSectionMap[sectionType].spawnRates[type]
-		
+
+		if available_fish_types.is_empty() or total_spawn_rate <= 0:
+			break
+
 		# Normalize random value to available fish types
 		r = r * total_spawn_rate
-		
+
 		var commulative_spawn_rate = 0
 		var spawn_fish_config = null
 		var fishType = null
@@ -75,11 +96,14 @@ func spawn_fish(spawn_all: bool = false):
 				fishType = type
 				spawn_fish_config = FishesConfig.fishConfigMap[type]
 				break
+
+		if spawn_fish_config == null:
+			break
+
 		var fish = spawn_fish_config.scene.instantiate()
-		
 		var shiny = randf() < FishesConfig.fishSectionMap[sectionType].shiny_rate
 		var weight_multiplier = FishesConfig.fishSectionMap[sectionType].weight_multiplier
-	
+
 		fish.initialize(spawn_pos, self.get_instance_id(),
 			spawn_fish_config.speed_min, spawn_fish_config.speed_max,
 			spawn_fish_config.difficulty,
@@ -90,6 +114,7 @@ func spawn_fish(spawn_all: bool = false):
 			shiny
 			)
 		add_child(fish)
+		fish_type_counts[fishType] = fish_type_counts.get(fishType, 0) + 1
 		amount += 1
 		if !spawn_all:
 			break
