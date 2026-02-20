@@ -218,8 +218,8 @@ func switch_back_to_original_player():
 	# Switch back to normal submarine appearance AFTER upgrades are reset
 	player.switch_to_normal_submarine()
 	
-	# Trigger normal death processing for upgrade menu
-	restore_normal_death_processing()
+	# Queue normal death transition after post-intro rescue dialog closes
+	GameState.pending_regular_death_transition = true
 	
 	print("Switched back to normal submarine appearance at surface")
 
@@ -254,16 +254,6 @@ func remove_intro_mission_elements():
 	
 	print("Removed %d intro mission sections" % sections_to_remove.size())
 	print("Intro mission elements cleanup complete")
-
-func restore_normal_death_processing():
-	"""Restore normal death processing to show upgrade menu"""
-	print("Restoring normal death processing to show upgrade menu")
-	
-	# Set health to 0 to trigger normal death sequence
-	GameState.health = 0
-	
-	# The normal death processing in player.gd will handle showing upgrade menu and death screen
-	print("Health set to 0 - normal death sequence will handle UI restoration")
 
 func _on_barrier_scatter_area_entered(body: Node3D) -> void:
 	"""Handle fish entering the scatter area around the invisible barrier"""

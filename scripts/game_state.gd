@@ -91,6 +91,7 @@ var is_first_time_player = true
 var intro_mission_completed = false
 var friend_death_position: Vector3 = Vector3.ZERO
 var boss_encountered = false  # Flag to track if player has seen the boss for the first time
+var pending_regular_death_transition = false
 
 func _ready():
 	# Connect to inventory's methods to emit the inventory_updated signal
@@ -168,6 +169,7 @@ func start_intro_mission():
 	is_first_time_player = true
 	intro_mission_completed = false
 	boss_encountered = false  # Reset boss encounter flag for intro mission
+	pending_regular_death_transition = false
 	
 	# Reset game state properly for intro mission
 	death_screen = false
@@ -202,6 +204,7 @@ func force_hide_death_ui():
 	death_screen = false
 	paused = false
 	isDocked = false  # Make sure player is not docked
+	pending_regular_death_transition = false
 	
 	# Find and hide death screen UI
 	var ui_node = get_node_or_null("/root/Node3D/UI")
@@ -256,6 +259,7 @@ func complete_intro_mission(death_position: Vector3):
 	
 	Boss.boss_spawned = false  # Ensure boss is not spawned after intro mission
 	boss_encountered = false   # Reset boss encounter flag after intro mission
+	pending_regular_death_transition = false
 	
 	# Restore achievement UI visibility after intro mission
 	restore_ui_after_intro_mission()
@@ -273,6 +277,7 @@ func start_normal_mode():
 	is_first_time_player = false
 	intro_mission_completed = true  # Intro mission is skipped in normal mode
 	boss_encountered = false  # Reset boss encounter flag in normal mode
+	pending_regular_death_transition = false
 	
 	# Initialize normal game state
 	death_screen = false

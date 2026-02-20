@@ -557,19 +557,27 @@ func process_death():
 				level_node.switch_back_to_original_player()
 			return
 		
-		print("Setting death screen to true")
-		GameState.death_screen = true
-		
-		# If inventory save upgrade is purchased, keep inventory items
-		if GameState.upgrades[GameState.Upgrade.INVENTORY_SAVE] == 0:
-			GameState.inventory.clear()
-		else:
-			# Visual feedback that inventory was saved
-			PopupManager.show_popup("Inventory saved by insurance!", $PopupSpawnPosition.global_position, Color.GREEN)
-		
-		GameState.paused = true
-		GameState.health = 100
-		position = Vector3(-8, 0, 0.33)
+		trigger_regular_death()
+
+func trigger_regular_death(show_inventory_saved_popup: bool = true):
+	if GameState.death_screen:
+		return
+	
+	print("Setting death screen to true")
+	GameState.death_screen = true
+	GameState.paused = true
+	GameState.isDocked = false
+	
+	# If inventory save upgrade is purchased, keep inventory items
+	if GameState.upgrades[GameState.Upgrade.INVENTORY_SAVE] == 0:
+		GameState.inventory.clear()
+	elif show_inventory_saved_popup:
+		# Visual feedback that inventory was saved
+		PopupManager.show_popup("Inventory saved by insurance!", $PopupSpawnPosition.global_position, Color.GREEN)
+	
+	# Respawn setup
+	GameState.health = 100
+	position = Vector3(-8, 0, 0.33)
 
 
 func scatter_area_entered(body: Node3D) -> void:
