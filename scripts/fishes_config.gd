@@ -62,13 +62,13 @@ var fishConfigMap = {
 		icon = preload("res://textures/icons/spikey_fish.png")
 	},
 	FishType.BOSS_MINI: {
-		# Rebalanced mini-blobfish: still premium, but less tanky/sluggish than before.
-		weight_min = 4,
-		weight_max = 10,
-		price_weight_multiplier = 14,
-		speed_min = 0.8,
-		speed_max = 2.2,
-		difficulty = 12,
+		# Mini-blobfish balancing pass: keep it rewarding, but faster and less tanky.
+		weight_min = 3,
+		weight_max = 8,
+		price_weight_multiplier = 12,
+		speed_min = 1.1,
+		speed_max = 2.8,
+		difficulty = 10,
 		scene = preload("res://scenes/mobs/boss_mini_fish.tscn"),
 		icon = preload("res://textures/icons/boss_icon.png")
 	}
@@ -133,8 +133,8 @@ var fishSectionMap = {
 		spawnRates = {
 			FishType.ANGLER: .5,
 			FishType.SMALLY: .25,
-			FishType.SPIKEY: .15,
-			FishType.BOSS_MINI: .1
+			FishType.SPIKEY: .17,
+			FishType.BOSS_MINI: .08
 		}
 	},
 	GameState.Stage.VOID: {
