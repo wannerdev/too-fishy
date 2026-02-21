@@ -20,6 +20,14 @@ func _ready() -> void:
 			Boss.boss_dialog_index = 0
 			GameState.paused = false
 			get_tree().paused = false
+			
+			# Intro mission transition: after the rescue dialog closes,
+			# trigger the regular death flow explicitly.
+			if GameState.pending_regular_death_transition \
+			and Boss.boss_dialog_section == Boss.BossDialogSections.POST_INTRO_RESCUE:
+				GameState.pending_regular_death_transition = false
+				if GameState.player_node and GameState.player_node.has_method("trigger_regular_death"):
+					GameState.player_node.trigger_regular_death(false)
 	)
 
 func _update_size() -> void:
