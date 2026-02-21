@@ -102,6 +102,12 @@ func _on_shoot_pressed():
 	if can_shoot and !GameState.paused and !is_mouse_over_ui():
 		shoot_harpoon()
 
+# Submarine collision damage tuning
+@export var fish_collision_damage_enabled: bool = true
+@export var fish_collision_min_speed: float = 2.2
+@export var fish_collision_base_damage: float = 1.0
+@export var fish_collision_damage_speed_factor: float = 0.45
+
 func collision():
 	var _collision = move_and_slide()
 	
@@ -113,6 +119,12 @@ func collision():
 			if "type" in collider:
 				if collider.type == FishesConfig.FishType.SPIKEY:
 					hurtPlayer(5)
+				
+				if fish_collision_damage_enabled and collider.is_in_group("fishes") and collider.has_method("apply_collision_damage"):
+					var impact_speed = velocity.length()
+					if impact_speed >= fish_collision_min_speed:
+						var impact_damage = fish_collision_base_damage + ((impact_speed - fish_collision_min_speed) * fish_collision_damage_speed_factor)
+						collider.apply_collision_damage(impact_damage, self)
 
 var can_be_hurt = true
 
