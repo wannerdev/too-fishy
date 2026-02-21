@@ -25,6 +25,8 @@ var harpoon_rotation_direction = 1 # 1 = clockwise, -1 = counterclockwise
 const COOLDOWN_HARPOON = 1.0 # Reduced from 2.0
 const COOLDOWN_SURFACE_BUOY = 3.0
 const COOLDOWN_SELLING_DRONE = 5.0
+const CATCH_EFFECT_Z_FRONT_OFFSET = 0.08
+const CATCH_EFFECT_MIN_Z = -0.2
 
 @onready var cooldown_timer_harpoon = $HarpoonCD # Timer node for harpoon
 @onready var cooldown_timer_buoy = $BuoyCD # Timer node for surface buoy
@@ -414,6 +416,11 @@ func catch_fish(fish):
 		var catch_effect = catch_effect_scene.instantiate()
 		get_parent().add_child(catch_effect)
 		catch_effect.global_position = fish_position
+		
+		# Keep fish death/catch FX in front of the section background for readability
+		var catch_effect_position = catch_effect.global_position
+		catch_effect_position.z = max(fish_position.z + CATCH_EFFECT_Z_FRONT_OFFSET, CATCH_EFFECT_MIN_Z)
+		catch_effect.global_position = catch_effect_position
 		
 		# Set effect properties based on stored fish properties
 		if is_shiny:
