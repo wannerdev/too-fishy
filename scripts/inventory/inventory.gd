@@ -133,11 +133,11 @@ func try_replace_less_valuable_fish(new_fish: InvItem) -> bool:
 		
 	return true
 
-func release_fish(fish_item: InvItem) -> void:
+func release_fish(fish_item: InvItem, should_scatter: bool = true) -> Node3D:
 	# Get player position (submarine location)
 	var player = GameState.player_node
 	if player == null:
-		return
+		return null
 		
 	# Use the actual stored fish type instead of guessing
 	var stored_type = fish_item.type
@@ -192,9 +192,11 @@ func release_fish(fish_item: InvItem) -> void:
 	# Add fish to the world
 	player.get_parent().add_child(fish)
 	
-	# Make the fish scatter away from the submarine
-	if fish.has_method("scatter"):
+	# Make the fish scatter away from the submarine (default behavior)
+	if should_scatter and fish.has_method("scatter"):
 		fish.scatter(player)
+	
+	return fish
 
 func sellItems():
 	var sold = 0

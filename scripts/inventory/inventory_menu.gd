@@ -127,20 +127,8 @@ func _on_close_button_pressed():
 func _on_sell_drone_pressed():
 	# Only process if drone selling upgrade is purchased and we're not in intro mission
 	if GameState.upgrades[GameState.Upgrade.DRONE_SELLING] > 0 and !GameState.is_intro():
-		var sold_amount = GameState.inventory.sellItems()
-		
-		if sold_amount > 0:
-			# Show popup message using player's position as reference point
-			if GameState.player_node:
-				PopupManager.show_popup("Drone sold all fish for $" + str(sold_amount), GameState.player_node.get_node("PopupSpawnPosition").global_position, Color.GREEN)
-			
-			# Play sell sound
-			if GameState.player_node and GameState.player_node.has_method("play_sound"):
-				GameState.player_node.play_sound("coins")
-			
-			# Create a drone visual effect if player node exists
-			if GameState.player_node and GameState.player_node.has_method("activate_selling_drone"):
-				GameState.player_node.activate_selling_drone()
+		if GameState.player_node and GameState.player_node.has_method("activate_selling_drone"):
+			GameState.player_node.activate_selling_drone()
 		
 		# Refresh inventory display
 		refresh_inventory()

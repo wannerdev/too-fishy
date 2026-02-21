@@ -1,0 +1,21 @@
+[gd_resource type="StandardMaterial3D" load_steps=6 format=3]
+
+[ext_resource type="Texture2D" path="res://textures/fishes/fishies painter_initialShadingGroup_BaseColor.png" id="1_base"]
+[ext_resource type="Texture2D" path="res://textures/fishes/fishies painter_initialShadingGroup_Emissive.png" id="2_emiss"]
+[ext_resource type="Texture2D" path="res://textures/fishes/fishies painter_initialShadingGroup_Height.png" id="3_height"]
+[ext_resource type="Texture2D" path="res://textures/fishes/Fishies.png" id="4_normal"]
+[ext_resource type="Texture2D" path="res://textures/fishes/fishies painter_initialShadingGroup_Roughness.png" id="5_rough"]
+
+[resource]
+albedo_color = Color(0.99, 0.84, 0.90, 1)
+albedo_texture = ExtResource("1_base")
+roughness = 0.62
+roughness_texture = ExtResource("5_rough")
+emission_enabled = true
+emission = Color(0.72, 0.33, 0.58, 1)
+emission_energy_multiplier = 1.45
+emission_texture = ExtResource("2_emiss")
+normal_enabled = true
+normal_texture = ExtResource("4_normal")
+heightmap_scale = 1.0
+heightmap_texture = ExtResource("3_height")

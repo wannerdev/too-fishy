@@ -672,6 +672,10 @@ func activate_selling_drone():
 	if GameState.is_intro():
 		return
 	
+	# Nothing to sell
+	if GameState.inventory.items.size() == 0:
+		return
+	
 	var drone_scene = preload("res://scenes/mobs/drone.tscn")
 	var drone = drone_scene.instantiate()
 	
@@ -687,31 +691,54 @@ func activate_selling_drone():
 	drone.add_child(particles)
 	particles.emitting = true
 	
+	# Convert inventory fish to world fish so the drone can drag them away
+	var items_to_sell = GameState.inventory.items.duplicate()
+	var sold_amount = 0
+	var released_fish: Array[Node3D] = []
+	
+	for item in items_to_sell:
+		sold_amount += item.price
+		var released = GameState.inventory.release_fish(item, false)
+		if released:
+			released_fish.append(released)
+	
+	# Clear inventory after releasing fish into the world
+	GameState.inventory.items.clear()
+	GameState.inventory.updateTotal()
+	GameState.notify_inventory_updated()
+	
 	# Define dock position (based on process_dock logic: y >= -1 && x > -7)
-	var dock_position = Vector3(-5, -0.5, position.z) # Slightly above surface, within dock area
+	var dock_position = Vector3(-5, -1.2, position.z)
 	
 	# Calculate durations for smooth movement
 	var distance_to_dock = drone.position.distance_to(dock_position)
-	var swim_duration = distance_to_dock / 3.0 # Drone moves at ~3 units per second
+	var swim_duration = max(0.6, distance_to_dock / 3.0) # Drone moves at ~3 units per second
 	
-	# Create animation sequence
-	var tween = get_tree().create_tween()
-	
-	# First: swim toward dock
-	tween.tween_property(drone, "position", dock_position, swim_duration)
-	
-	# Then: fade out and remove (using tween_callback to start fade after movement)
-	tween.tween_callback(func():
-		var fade_tween = get_tree().create_tween()
-		fade_tween.tween_property(drone, "modulate:a", 0.0, 0.5)
-		fade_tween.tween_callback(func():
-			if is_instance_valid(drone):
-				drone.queue_free()
+	# Animate released fish towards the drone destination to simulate being dragged
+	for fish in released_fish:
+		if not is_instance_valid(fish):
+			continue
+		fish.set_physics_process(false)
+		fish.set_process(false)
+		var fish_tween = get_tree().create_tween()
+		fish_tween.tween_property(fish, "global_position", dock_position + Vector3(randf_range(-0.35, 0.35), randf_range(-0.2, 0.2), 0), swim_duration * randf_range(0.85, 1.1))
+		fish_tween.tween_callback(func():
+			if is_instance_valid(fish):
+				fish.queue_free()
 		)
-	)
 	
-	# Sell items immediately when drone is deployed
-	onDock()
+	# Create animation sequence for the drone
+	var tween = get_tree().create_tween()
+	tween.tween_property(drone, "position", dock_position, swim_duration)
+	tween.tween_callback(func():
+		GameState.money += sold_amount
+		if sold_amount > 0:
+			sound_player.play_sound("coins")
+			PopupManager.show_popup("Drone sold all fish for $" + str(sold_amount), $PopupSpawnPosition.global_position, Color.GREEN)
+		
+		if is_instance_valid(drone):
+			drone.queue_free()
+	)
 	
 	# Start cooldown
 	cooldown_timer_drone.start()

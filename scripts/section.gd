@@ -38,34 +38,93 @@ var stageTransitionsWithBarriers: Dictionary = {
 var depth: int = 0
 var is_on_screen: bool = false
 var destroyable_barrier_scene = preload("res://scenes/destroyable_barier.tscn")
+# Per-fish-type spawn cooldowns (seconds) to smooth out high-impact fish pressure.
+var spawn_type_cooldowns: Dictionary = {}
 
 func setDepth(d: int):
 	depth = d
+
+func _process(delta: float) -> void:
+	if spawn_type_cooldowns.is_empty():
+		return
+
+	var expired_types := []
+	for fish_type in spawn_type_cooldowns.keys():
+		var remaining = max(0.0, float(spawn_type_cooldowns[fish_type]) - delta)
+		spawn_type_cooldowns[fish_type] = remaining
+		if remaining <= 0.0:
+			expired_types.append(fish_type)
+
+	for fish_type in expired_types:
+		spawn_type_cooldowns.erase(fish_type)
 
 func spawn_fish(spawn_all: bool = false):
 	if !FishesConfig.fishSectionMap.has(sectionType):
 		print("No fish spawns defined for ", GameState.Stage.keys()[sectionType])
 		return
-	var amount = len(get_tree().get_nodes_in_group("fishes").filter(func(x): return x.home == self.get_instance_id()))
+
+	var all_fishes = get_tree().get_nodes_in_group("fishes")
+	var existing_fishes = all_fishes.filter(func(x): return x.home == self.get_instance_id())
+	var amount = len(existing_fishes)
+	var fish_type_counts := {}
+	var global_fish_type_counts := {}
+	for fish_node in all_fishes:
+		if fish_node == null:
+			continue
+		var fish_type = fish_node.get("type")
+		if fish_type == null:
+			continue
+		global_fish_type_counts[fish_type] = global_fish_type_counts.get(fish_type, 0) + 1
+		if fish_node.home == self.get_instance_id():
+			fish_type_counts[fish_type] = fish_type_counts.get(fish_type, 0) + 1
+
 	while amount < FishesConfig.fishSectionMap[sectionType].max_fish_amount:
 		var r = randf()
-		var spawn_pos = Vector3(randf_range(spawn_marker_a.position.x, spawn_marker_b.position.x),
-							randf_range(spawn_marker_a.position.y, spawn_marker_b.position.y), 1)
+		var spawn_pos = Vector3(
+			randf_range(spawn_marker_a.position.x, spawn_marker_b.position.x),
+			randf_range(spawn_marker_a.position.y, spawn_marker_b.position.y),
+			1
+		)
 		spawn_pos.z = -0.3
-		# Get available fish types (excluding boss mini if boss not defeated)
+
+		# Build available fish types with balancing constraints.
 		var available_fish_types = {}
 		var total_spawn_rate = 0.0
-		
 		for type in FishesConfig.fishSectionMap[sectionType].spawnRates:
-			# Skip boss mini fish if boss hasn't been defeated yet
-			if type == FishesConfig.FishType.BOSS_MINI and not GameState.is_boss_defeated():
+			var fish_config = FishesConfig.fishConfigMap[type]
+
+			if fish_config.get("requires_boss_defeat", false) and not GameState.is_boss_defeated():
 				continue
+
+			if !fish_config.get("spawn_during_intro", true) and GameState.is_intro():
+				continue
+
+			if fish_config.has("min_required_depth"):
+				if GameState.maxDepthReached < int(fish_config.min_required_depth):
+					continue
+
+			if fish_config.has("max_active_per_section"):
+				var section_cap = int(fish_config.max_active_per_section)
+				if section_cap >= 0 and fish_type_counts.get(type, 0) >= section_cap:
+					continue
+
+			if fish_config.has("max_active_global"):
+				var global_cap = int(fish_config.max_active_global)
+				if global_cap >= 0 and global_fish_type_counts.get(type, 0) >= global_cap:
+					continue
+
+			if spawn_type_cooldowns.has(type) and float(spawn_type_cooldowns[type]) > 0.0:
+				continue
+
 			available_fish_types[type] = FishesConfig.fishSectionMap[sectionType].spawnRates[type]
 			total_spawn_rate += FishesConfig.fishSectionMap[sectionType].spawnRates[type]
-		
-		# Normalize random value to available fish types
+
+		if available_fish_types.is_empty() or total_spawn_rate <= 0:
+			break
+
+		# Normalize random value to available fish types.
 		r = r * total_spawn_rate
-		
+
 		var commulative_spawn_rate = 0
 		var spawn_fish_config = null
 		var fishType = null
@@ -75,21 +134,35 @@ func spawn_fish(spawn_all: bool = false):
 				fishType = type
 				spawn_fish_config = FishesConfig.fishConfigMap[type]
 				break
+
+		if spawn_fish_config == null:
+			break
+
 		var fish = spawn_fish_config.scene.instantiate()
-		
 		var shiny = randf() < FishesConfig.fishSectionMap[sectionType].shiny_rate
 		var weight_multiplier = FishesConfig.fishSectionMap[sectionType].weight_multiplier
-	
-		fish.initialize(spawn_pos, self.get_instance_id(),
-			spawn_fish_config.speed_min, spawn_fish_config.speed_max,
+
+		fish.initialize(
+			spawn_pos,
+			self.get_instance_id(),
+			spawn_fish_config.speed_min,
+			spawn_fish_config.speed_max,
 			spawn_fish_config.difficulty,
-			spawn_fish_config.weight_min, spawn_fish_config.weight_max,
+			spawn_fish_config.weight_min,
+			spawn_fish_config.weight_max,
 			spawn_fish_config.price_weight_multiplier,
 			fishType,
 			weight_multiplier,
 			shiny
-			)
+		)
 		add_child(fish)
+
+		if spawn_fish_config.has("spawn_cooldown_sec"):
+			var cooldown = float(spawn_fish_config.spawn_cooldown_sec)
+			spawn_type_cooldowns[fishType] = max(cooldown, float(spawn_type_cooldowns.get(fishType, 0.0)))
+
+		fish_type_counts[fishType] = fish_type_counts.get(fishType, 0) + 1
+		global_fish_type_counts[fishType] = global_fish_type_counts.get(fishType, 0) + 1
 		amount += 1
 		if !spawn_all:
 			break
