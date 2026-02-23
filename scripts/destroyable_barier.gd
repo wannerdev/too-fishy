@@ -8,7 +8,12 @@ class_name DestroyableBarrier
 var hint_shown = false # Track if we've shown the hint already
 var hint_cooldown = 3.0 # Cooldown between showing hints
 var pickaxe_icon_material = null
-var cracks_texture = null
+
+const CRACK_STAGE_COUNT := 7
+const CRACK_TEXTURE := preload("res://textures/effects/screen_crack.png")
+
+var crack_overlay_material: StandardMaterial3D = null
+var current_crack_stage: int = -1
 
 # Static variable to track if any barrier is showing a hint
 static var global_hint_shown = false
@@ -52,6 +57,8 @@ func _ready():
 	
 	# Add visual indicator for pickaxe breakability
 	add_pickaxe_indicator()
+	setup_crack_overlay()
+	update_crack_appearance()
 
 # Give player a random reward when box is destroyed
 func give_random_reward():
@@ -205,22 +212,48 @@ func add_pickaxe_indicator():
 	tween.tween_property(indicator, "rotation_degrees:y", 360, 3)
 	tween.set_loops()
 	
-	# Add crack decals to the box
-	add_crack_decals()
+	# Crack stage visuals are managed by setup_crack_overlay()/update_crack_appearance().
 
 func add_crack_decals():
-	# Create random cracks on the box surface
-	var decal = Decal.new()
-	decal.name = "CrackDecal"
-	
-	# Set size to cover the box
-	decal.size = Vector3(2, 2, 2)
-	
-	# Create material - DECALS DON'T USE material_override, they use texture
-	# Using a decal for cracks might not work easily, so we'll skip setting material
-	# and let it use default
-	
-	add_child(decal)
+	# Legacy hook kept for compatibility. Cracks now use staged mesh overlay.
+	setup_crack_overlay()
+
+func setup_crack_overlay():
+	if crack_overlay_material != null:
+		return
+
+	var mesh_instance := get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if mesh_instance == null:
+		return
+
+	crack_overlay_material = StandardMaterial3D.new()
+	crack_overlay_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	crack_overlay_material.albedo_texture = CRACK_TEXTURE
+	crack_overlay_material.albedo_color = Color(1, 1, 1, 0)
+	crack_overlay_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	crack_overlay_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	crack_overlay_material.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
+	crack_overlay_material.uv1_scale = Vector3(0.6, 0.6, 1.0)
+
+	mesh_instance.material_overlay = crack_overlay_material
+
+func apply_crack_stage(stage: int):
+	if crack_overlay_material == null:
+		return
+
+	stage = clampi(stage, 0, CRACK_STAGE_COUNT - 1)
+	if stage == current_crack_stage:
+		return
+	current_crack_stage = stage
+
+	var normalized := float(stage) / float(CRACK_STAGE_COUNT - 1)
+	var alpha := pow(normalized, 1.1) * 0.9
+	crack_overlay_material.albedo_color = Color(1, 1, 1, alpha)
+
+	# Nudge UVs/scale per stage to mimic discrete block-break phases.
+	var uv_scale := 0.6 + (normalized * 0.32)
+	crack_overlay_material.uv1_scale = Vector3(uv_scale, uv_scale, 1.0)
+	crack_overlay_material.uv1_offset = Vector3(normalized * 0.21, normalized * 0.13, 0)
 
 func _on_player_detection_area_body_entered(body):
 	# Check if it's the player and no hint is currently shown by ANY barrier
@@ -285,15 +318,17 @@ func take_damage(amount: int):
 		destroy()
 
 func update_crack_appearance():
-	# Make cracks more visible as health decreases
-	var crack_decal = get_node_or_null("CrackDecal")
-	if crack_decal:
-		# Decals don't have material_override, so we'll just scale it based on damage
-		var health_percentage = float(current_health) / float(max_health)
-		
-		# Make decal larger as damage increases
-		var scale_factor = 1.0 + (1.0 - health_percentage) * 0.5
-		crack_decal.size = Vector3(2, 2, 2) * scale_factor
+	setup_crack_overlay()
+	if crack_overlay_material == null:
+		return
+
+	var safe_max_health := max(1, max_health)
+	var clamped_health := clampi(current_health, 0, safe_max_health)
+	var damage_ratio := 1.0 - (float(clamped_health) / float(safe_max_health))
+
+	# Minecraft-like staged break visualization: each health chunk advances one crack phase.
+	var stage := int(ceil(damage_ratio * float(CRACK_STAGE_COUNT - 1)))
+	apply_crack_stage(stage)
 
 func destroy():
 	create_destruction_particles()
