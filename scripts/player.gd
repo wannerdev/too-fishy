@@ -592,6 +592,9 @@ func process_death():
 			var level_node = get_node("/root/Node3D/Level")
 			if level_node:
 				level_node.switch_back_to_original_player()
+			# Keep health positive so death flow does not retrigger on the next frame
+			# before POST_INTRO_RESCUE dialog closes and explicitly calls trigger_regular_death().
+			GameState.health = 100
 			return
 
 		trigger_regular_death()
