@@ -12,7 +12,10 @@ var pickaxe_icon_material = null
 const CRACK_STAGE_COUNT := 7
 const CRACK_TEXTURE := preload("res://textures/effects/screen_crack.png")
 
-var crack_overlay_material: StandardMaterial3D = null
+# One shared StandardMaterial3D per damage stage, built lazily and reused by
+# every barrier. Stage 0 has no overlay at all so pristine barriers cost nothing.
+static var _stage_materials: Array = []
+
 var current_crack_stage: int = -1
 
 # Static variable to track if any barrier is showing a hint
@@ -57,7 +60,6 @@ func _ready():
 	
 	# Add visual indicator for pickaxe breakability
 	add_pickaxe_indicator()
-	setup_crack_overlay()
 	update_crack_appearance()
 
 # Give player a random reward when box is destroyed
@@ -212,48 +214,41 @@ func add_pickaxe_indicator():
 	tween.tween_property(indicator, "rotation_degrees:y", 360, 3)
 	tween.set_loops()
 	
-	# Crack stage visuals are managed by setup_crack_overlay()/update_crack_appearance().
+	# Crack stage visuals are managed by apply_crack_stage()/update_crack_appearance().
 
-func add_crack_decals():
-	# Legacy hook kept for compatibility. Cracks now use staged mesh overlay.
-	setup_crack_overlay()
-
-func setup_crack_overlay():
-	if crack_overlay_material != null:
-		return
-
-	var mesh_instance := get_node_or_null("MeshInstance3D") as MeshInstance3D
-	if mesh_instance == null:
-		return
-
-	crack_overlay_material = StandardMaterial3D.new()
-	crack_overlay_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	crack_overlay_material.albedo_texture = CRACK_TEXTURE
-	crack_overlay_material.albedo_color = Color(1, 1, 1, 0)
-	crack_overlay_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	crack_overlay_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	crack_overlay_material.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
-	crack_overlay_material.uv1_scale = Vector3(0.6, 0.6, 1.0)
-
-	mesh_instance.material_overlay = crack_overlay_material
+static func _get_stage_material(stage: int) -> StandardMaterial3D:
+	if _stage_materials.is_empty():
+		_stage_materials.resize(CRACK_STAGE_COUNT)
+		for s in CRACK_STAGE_COUNT:
+			var normalized := float(s) / float(CRACK_STAGE_COUNT - 1)
+			var mat := StandardMaterial3D.new()
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.albedo_texture = CRACK_TEXTURE
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mat.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
+			mat.albedo_color = Color(1, 1, 1, pow(normalized, 1.1) * 0.9)
+			var uv_scale := 0.6 + (normalized * 0.32)
+			mat.uv1_scale = Vector3(uv_scale, uv_scale, 1.0)
+			mat.uv1_offset = Vector3(normalized * 0.21, normalized * 0.13, 0)
+			_stage_materials[s] = mat
+	return _stage_materials[clampi(stage, 0, CRACK_STAGE_COUNT - 1)]
 
 func apply_crack_stage(stage: int):
-	if crack_overlay_material == null:
-		return
-
 	stage = clampi(stage, 0, CRACK_STAGE_COUNT - 1)
 	if stage == current_crack_stage:
 		return
 	current_crack_stage = stage
 
-	var normalized := float(stage) / float(CRACK_STAGE_COUNT - 1)
-	var alpha := pow(normalized, 1.1) * 0.9
-	crack_overlay_material.albedo_color = Color(1, 1, 1, alpha)
+	var mesh_instance := get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if mesh_instance == null:
+		return
 
-	# Nudge UVs/scale per stage to mimic discrete block-break phases.
-	var uv_scale := 0.6 + (normalized * 0.32)
-	crack_overlay_material.uv1_scale = Vector3(uv_scale, uv_scale, 1.0)
-	crack_overlay_material.uv1_offset = Vector3(normalized * 0.21, normalized * 0.13, 0)
+	# Stage 0 = pristine — skip the overlay entirely to save a draw pass.
+	if stage == 0:
+		mesh_instance.material_overlay = null
+	else:
+		mesh_instance.material_overlay = _get_stage_material(stage)
 
 func _on_player_detection_area_body_entered(body):
 	# Check if it's the player and no hint is currently shown by ANY barrier
@@ -318,11 +313,7 @@ func take_damage(amount: int):
 		destroy()
 
 func update_crack_appearance():
-	setup_crack_overlay()
-	if crack_overlay_material == null:
-		return
-
-	var safe_max_health := max(1, max_health)
+	var safe_max_health: int = maxi(1, max_health)
 	var clamped_health := clampi(current_health, 0, safe_max_health)
 	var damage_ratio := 1.0 - (float(clamped_health) / float(safe_max_health))
 

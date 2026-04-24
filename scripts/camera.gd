@@ -62,7 +62,8 @@ func _adjust_camera_for_aspect_ratio():
 		# Same aspect ratio as reference
 		fov = base_fov
 	
-	print("Window size: ", window_size, " - Aspect ratio: ", current_aspect, " - FOV: ", fov)
+	if GameState.DEBUG_PRINTS:
+		print("Window size: ", window_size, " - Aspect ratio: ", current_aspect, " - FOV: ", fov)
 
 func change_section_environment(sectionType):
 	# Validate that the section type exists in our maps

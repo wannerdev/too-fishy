@@ -2,6 +2,9 @@ extends Node
 
 signal inventory_updated
 
+# Toggle verbose developer prints. Leave false in release builds.
+const DEBUG_PRINTS: bool = false
+
 #DEFINITIONS
 enum Stage {SURFACE, DEEP, DEEPER, SUPERDEEP, HOT, LAVA, VOID}
 enum GameMode {NORMAL, INTRO_MISSION}

@@ -28,15 +28,6 @@ var debug_birth_time: float = 0.0 # Track when this fish was created for debuggi
 var debug_last_accum_time: float = 0.0 # Track previous accumulated time for rate calculation
 var debug_last_real_time: float = 0.0 # Track real time for rate calculation
 
-# Collision damage tuning (submarine ramming)
-@export var collision_damage_cooldown: float = 0.25
-@export var collision_damage_speed_boost: float = 0.4
-@export var collision_speed_cap_multiplier: float = 1.8
-@export var collision_health_base: float = 1.0
-@export var collision_health_weight_factor: float = 0.2
-var collision_health: float = 1.0
-var collision_last_hit_time: float = -1000.0
-
 # --- Shader Animation Speed Control (names describe rate of accumulation) ---
 @export var base_anim_rate: float = 0.5 # Base rate for accumulated_shader_time
 @export var speed_to_anim_rate_factor: float = 1.25 # Increased from 0.75
@@ -199,8 +190,7 @@ mDifficulty, mMin_weight, mMax_weight, price_weight_multiplier, mType, weight_mu
 	self.price = round(weight * price_weight_multiplier)
 	self.type = mType
 	self.is_shiny = mIs_shiny
-	collision_health = max(0.5, collision_health_base + (self.weight * collision_health_weight_factor))
-	
+
 	scale = get_scale_for_weight(mMax_weight, mMin_weight, weight)
 	
 	if self.is_shiny:
@@ -335,28 +325,6 @@ func scatter(body: Node3D) -> void:
 	validate_orientation_velocity_match()
 	
 	pass
-
-func apply_collision_damage(amount: float, hitter: Node3D) -> bool:
-	var now = Time.get_ticks_msec() / 1000.0
-	if now - collision_last_hit_time < collision_damage_cooldown:
-		return false
-	collision_last_hit_time = now
-
-	collision_health -= max(0.1, amount)
-	if collision_health <= 0.0:
-		if hitter and hitter.has_method("catch_fish"):
-			hitter.catch_fish(self)
-		else:
-			queue_free()
-		return true
-
-	if hitter:
-		scatter(hitter)
-	
-	# Burst speed feedback on collision without becoming uncontrollable
-	speed = min(max_speed * collision_speed_cap_multiplier, speed + collision_damage_speed_boost)
-	set_z_rotation_and_velocity(randf_range(min_angle, max_angle))
-	return false
 
 func get_scale_for_weight(max_weight, min_weight, mWeight) -> Vector3:
 	var weight_range = (max_weight - min_weight)

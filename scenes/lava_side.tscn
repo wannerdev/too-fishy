@@ -5,9 +5,8 @@
 
 [sub_resource type="QuadMesh" id="QuadMesh_r6p65"]
 
-[sub_resource type="CylinderShape3D" id="CylinderShape3D_dw3wf"]
-height = 0.192413
-radius = 0.424805
+[sub_resource type="BoxShape3D" id="BoxShape3D_damage"]
+size = Vector3(1, 1, 0.5)
 
 [node name="Lava_side" type="Node3D"]
 script = ExtResource("2_lava_script")
@@ -19,11 +18,10 @@ skeleton = NodePath("../..")
 surface_material_override/0 = ExtResource("1_a5s42")
 
 [node name="LavaDamageArea" type="Area3D" parent="."]
-transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0.70497)
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="LavaDamageArea"]
-transform = Transform3D(1, 0, 0, 0, 0.0521095, 0.998641, 0, -0.998641, 0.0521095, 0, 0.0159113, -0.304929)
-shape = SubResource("CylinderShape3D_dw3wf")
+shape = SubResource("BoxShape3D_damage")
 
 [connection signal="body_entered" from="LavaDamageArea" to="." method="_on_lava_area_body_entered"]
 [connection signal="body_exited" from="LavaDamageArea" to="." method="_on_lava_area_body_exited"]

@@ -23,7 +23,7 @@ var harpoon_rotation_direction = 1 # 1 = clockwise, -1 = counterclockwise
 
 # Cooldown configurations
 const COOLDOWN_HARPOON = 1.0 # Reduced from 2.0
-const COOLDOWN_SURFACE_BUOY = 3.0
+@export var COOLDOWN_SURFACE_BUOY: float = 8.0
 const COOLDOWN_SELLING_DRONE = 5.0
 const CATCH_EFFECT_Z_FRONT_OFFSET = 0.08
 const CATCH_EFFECT_MIN_Z = -0.2
@@ -76,7 +76,8 @@ var achievement_system = null
 
 func _ready():
 	GameState.player_node = self
-	print("player ready")
+	if GameState.DEBUG_PRINTS:
+		print("player ready")
 
 	# Initialize cooldown timers
 	setup_cooldown_timer("HarpoonCD", COOLDOWN_HARPOON)
@@ -102,14 +103,6 @@ func _on_shoot_pressed():
 	if can_shoot and !GameState.paused and !is_mouse_over_ui():
 		shoot_harpoon()
 
-# Submarine collision damage tuning
-@export var fish_collision_damage_enabled: bool = true
-@export var fish_collision_min_speed: float = 2.2
-@export var fish_collision_base_damage: float = 1.0
-@export var fish_collision_damage_speed_factor: float = 0.45
-@export var fish_collision_max_damage: float = 3.5
-@export var fish_collision_requires_impact_direction: bool = true
-
 func collision():
 	var _collision = move_and_slide()
 
@@ -117,32 +110,14 @@ func collision():
 	for i in get_slide_collision_count():
 		var collision_info = get_slide_collision(i)
 		var collider = collision_info.get_collider()
+		# Kill horizontal momentum when we hit a solid wall so movement feels crisp.
+		# Skip for fish so bumping through them doesn't brake the submarine.
+		if not (collider is CharacterBody3D) and abs(collision_info.get_normal().x) > 0.7:
+			velocity_x = 0
 		if collider is CharacterBody3D:
 			if "type" in collider:
 				if collider.type == FishesConfig.FishType.SPIKEY:
 					hurtPlayer(5)
-				
-				if fish_collision_damage_enabled and collider.is_in_group("fishes") and collider.has_method("apply_collision_damage"):
-					var impact_speed = velocity.length()
-					if fish_collision_requires_impact_direction:
-						var collision_normal = collision_info.get_normal()
-						if collision_normal.length_squared() > 0.0001:
-							impact_speed = max(0.0, velocity.dot(-collision_normal.normalized()))
-					if impact_speed >= fish_collision_min_speed:
-						var impact_damage = fish_collision_base_damage + ((impact_speed - fish_collision_min_speed) * fish_collision_damage_speed_factor)
-						impact_damage = min(fish_collision_max_damage, impact_damage)
-						collider.apply_collision_damage(impact_damage, self)
-
-				if fish_collision_damage_enabled and collider.is_in_group("fishes") and collider.has_method("apply_collision_damage"):
-					var impact_speed = velocity.length()
-					if fish_collision_requires_impact_direction:
-						var collision_normal = collision_info.get_normal()
-						if collision_normal.length_squared() > 0.0001:
-							impact_speed = max(0.0, velocity.dot(-collision_normal.normalized()))
-					if impact_speed >= fish_collision_min_speed:
-						var impact_damage = fish_collision_base_damage + ((impact_speed - fish_collision_min_speed) * fish_collision_damage_speed_factor)
-						impact_damage = min(fish_collision_max_damage, impact_damage)
-						collider.apply_collision_damage(impact_damage, self)
 
 var can_be_hurt = true
 
@@ -355,7 +330,8 @@ func activate_surface_buoy():
 		# Simple cleanup after 3 seconds
 		get_tree().create_timer(3.0).timeout.connect(func():
 			if is_instance_valid(particles):
-				print("Cleaning up surface buoy particles")
+				if GameState.DEBUG_PRINTS:
+					print("Cleaning up surface buoy particles")
 				particles.queue_free()
 		)
 
@@ -581,7 +557,8 @@ func process_lava_damage(delta):
 
 func process_death():
 	if GameState.health <= 0:
-		print("Player death detected - Health: ", GameState.health, " Intro mission active: ", GameState.is_intro())
+		if GameState.DEBUG_PRINTS:
+			print("Player death detected - Health: ", GameState.health, " Intro mission active: ", GameState.is_intro())
 
 		# Handle friend death during intro mission
 		if GameState.is_intro():
@@ -603,7 +580,8 @@ func trigger_regular_death(show_inventory_saved_popup: bool = true):
 	if GameState.death_screen:
 		return
 
-	print("Setting death screen to true")
+	if GameState.DEBUG_PRINTS:
+		print("Setting death screen to true")
 	GameState.death_screen = true
 	GameState.paused = true
 	GameState.isDocked = false
@@ -792,26 +770,32 @@ func toggle_inventory_menu():
 	if inventory_menu == null:
 		# Find the menu in the scene
 		var ui_parent = get_tree().get_root().find_child("UI", true, false)
-		print("UI parent found: ", ui_parent)
+		if GameState.DEBUG_PRINTS:
+			print("UI parent found: ", ui_parent)
 		if ui_parent:
 			if ui_parent.has_node("CenterContainer/InventoryMenu"):
 				inventory_menu = ui_parent.get_node("CenterContainer/InventoryMenu")
-				print("Inventory menu found: ", inventory_menu)
+				if GameState.DEBUG_PRINTS:
+					print("Inventory menu found: ", inventory_menu)
 			else:
-				print("InventoryMenu not found at CenterContainer/InventoryMenu")
+				if GameState.DEBUG_PRINTS:
+					print("InventoryMenu not found at CenterContainer/InventoryMenu")
 				# Try alternative paths
 				inventory_menu = ui_parent.find_child("InventoryMenu", true, false)
-				print("Alternative search result: ", inventory_menu)
+				if GameState.DEBUG_PRINTS:
+					print("Alternative search result: ", inventory_menu)
 
 	# Toggle the menu
 	if inventory_menu:
-		print("Toggling inventory menu. Current visible: ", inventory_menu.visible)
+		if GameState.DEBUG_PRINTS:
+			print("Toggling inventory menu. Current visible: ", inventory_menu.visible)
 		if inventory_menu.visible:
 			inventory_menu.close()
 		else:
 			inventory_menu.open()
 	else:
-		print("inventory_menu is null - cannot toggle")
+		if GameState.DEBUG_PRINTS:
+			print("inventory_menu is null - cannot toggle")
 
 func connect_achievement_system(system):
 	achievement_system = system

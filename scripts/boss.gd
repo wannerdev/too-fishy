@@ -69,7 +69,8 @@ func take_damage(amount):
 	
 	# Check for 50% health trigger during intro mission
 	if GameState.is_intro() and boss_health <= (boss_max_health * 0.5):
-		print("Boss reached 50% health during intro mission - completing intro mission")
+		if GameState.DEBUG_PRINTS:
+			print("Boss reached 50% health during intro mission - completing intro mission")
 		# Complete the intro mission
 		var level_node = get_node_or_null("/root/Node3D/Level")
 		if level_node:
@@ -90,7 +91,8 @@ func defeat_boss():
 
 func hide_boss_health_bar():
 	"""Hide the boss health bar (used when intro mission ends)"""
-	print("Hiding boss health bar after intro mission completion")
+	if GameState.DEBUG_PRINTS:
+		print("Hiding boss health bar after intro mission completion")
 	emit_signal("boss_health_bar_hidden")
 
 func setDialogStage(section: BossDialogSections):

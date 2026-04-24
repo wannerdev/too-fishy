@@ -39,11 +39,12 @@ func _ready():
 
 func spawn_intro_mission_sections():
 	"""Spawn special sections for intro mission"""
-	print("Spawning intro mission sections")
+	if GameState.DEBUG_PRINTS:
+		print("Spawning intro mission sections")
 	
 	# Create invisible barrier at 400m depth (y=-400)
 	var lavaWall = preload("res://scenes/lava_side.tscn").instantiate()
-	lavaWall.name = "Lava WAll"
+	lavaWall.name = "LavaWall"
 	lavaWall.position = Vector3(-15, -400, 0)  # Center it at x=-15 to cover full section width
 	lavaWall.scale = Vector3(30, 15, 10)  # Wide horizontal Wall
 	
@@ -65,26 +66,28 @@ func spawn_intro_mission_sections():
 	#invisible_barrier.collision_mask = 3
 	
 	add_child(lavaWall)
-	print("lavaWall created at 400m depth")
+	if GameState.DEBUG_PRINTS:
+		print("lavaWall created at 400m depth")
 	
 	# Create scatter area around and below the invisible barrier
-	#var scatter_area = Area3D.new()
-	#scatter_area.name = "InvisibleBarrierScatterArea"
-	#scatter_area.position = Vector3(-15, -400, 0)  # 20m below the barrier
-	#scatter_area.monitorable = false
-	
-	## Create collision shape for scatter area (larger area around and below barrier)
-	#var scatter_collision = CollisionShape3D.new()
-	#var scatter_box = BoxShape3D.new()
-	#scatter_box.size = Vector3(40, 60, 15)  # Wide area around and below barrier
-	#scatter_collision.shape = scatter_box
-	#scatter_area.add_child(scatter_collision)
-	
+	var scatter_area = Area3D.new()
+	scatter_area.name = "InvisibleBarrierScatterArea"
+	scatter_area.position = Vector3(-15, -400, 0)  # 20m below the barrier
+	scatter_area.monitorable = false
+
+	# Create collision shape for scatter area (larger area around and below barrier)
+	var scatter_collision = CollisionShape3D.new()
+	var scatter_box = BoxShape3D.new()
+	scatter_box.size = Vector3(40, 60, 15)  # Wide area around and below barrier
+	scatter_collision.shape = scatter_box
+	scatter_area.add_child(scatter_collision)
+
 	# Connect scatter signal
-	#scatter_area.body_entered.connect(_on_barrier_scatter_area_entered)
-	
-	#add_child(scatter_area)
-	print("Scatter area created around invisible barrier")
+	scatter_area.body_entered.connect(_on_barrier_scatter_area_entered)
+
+	add_child(scatter_area)
+	if GameState.DEBUG_PRINTS:
+		print("Scatter area created around invisible barrier")
 	
 	# Spawn PreBarrier section at y=-400
 	var pre_barrier_section = section.instantiate()

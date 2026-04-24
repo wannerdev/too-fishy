@@ -171,12 +171,14 @@ func update_zone_lifespans(delta: float):
 		
 		# If zone has expired, destroy it and remove from tracking
 		if zone_data.spawn_time >= zone_lifespan:
-			print("Zone expired after ", zone_lifespan, " seconds, destroying")
+			if GameState.DEBUG_PRINTS:
+				print("Zone expired after ", zone_lifespan, " seconds, destroying")
 			zone_data.zone.queue_free()
 			active_zones.remove_at(i)
 
 func spawn_mind_control_zones():
-	print("Boss spawning mind control zones!")
+	if GameState.DEBUG_PRINTS:
+		print("Boss spawning mind control zones!")
 	
 	# Calculate how many zones to spawn
 	var current_count = get_valid_zones_count()
@@ -200,7 +202,8 @@ func spawn_mind_control_zones():
 			"spawn_time": 0.0
 		})
 		
-		print("Spawned mind control zone at: ", zone_position)
+		if GameState.DEBUG_PRINTS:
+			print("Spawned mind control zone at: ", zone_position)
 	
 	zones_spawned_this_fight += 1
 
@@ -270,7 +273,8 @@ func check_player_collision():
 			break
 
 func destroy_barrier(barrier):
-	print("Boss destroyed a barrier while charging!")
+	if GameState.DEBUG_PRINTS:
+		print("Boss destroyed a barrier while charging!")
 	
 	# Create dramatic destruction effect
 	create_boss_destruction_particles(barrier.global_position)
@@ -320,7 +324,8 @@ func create_boss_destruction_particles(position: Vector3):
 		particles.queue_free()
 
 func on_player_collision(_player):
-	print("Boss hit the player!")
+	if GameState.DEBUG_PRINTS:
+		print("Boss hit the player!")
 	player.add_trauma(1)
 	player.sound_player.play_sound("urrgh")
 	GameState.health -= damage_amount

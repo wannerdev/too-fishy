@@ -38,6 +38,16 @@ var stageTransitionsWithBarriers: Dictionary = {
 var depth: int = 0
 var is_on_screen: bool = false
 var destroyable_barrier_scene = preload("res://scenes/destroyable_barier.tscn")
+var _bg_fade_shader = preload("res://materials/shaders/background_fade.gdshader")
+var _vein_fade_shader = preload("res://materials/shaders/lava_vein_fade.gdshader")
+# Y-axis overscan for the Background so neighbor sections overlap and crossfade
+# through the fade band in background_fade.gdshader. Keep shader `fade_edge`
+# ≈ 2 * (overscan-1) / overscan so the fade is confined to the overlap region.
+const _BG_Y_OVERSCAN: float = 1.15
+# World-space fade band for lava veins at the top/bottom of each section.
+const _VEIN_FADE_BAND: float = 3.0
+# Half the world-space height of a section — matches the visible section span.
+const _SECTION_HALF_HEIGHT: float = 12.5
 # Per-fish-type spawn cooldowns (seconds) to smooth out high-impact fish pressure.
 var spawn_type_cooldowns: Dictionary = {}
 
@@ -258,7 +268,6 @@ func _ready() -> void:
 	
 	if shouldBeTransition:
 		background_mat = sectionTransitions[shouldTransitionTo]
-		$Background.set_surface_override_material(0, background_mat)
 	else:
 		if background_mat == null:
 			if sectionBackgroundMap[sectionType] != null:
@@ -266,11 +275,10 @@ func _ready() -> void:
 			else:
 				print("No background material found for ", GameState.Stage.keys()[sectionType])
 				background_mat = sectionBackgroundMap[GameState.Stage.SURFACE]
-	$Background.set_surface_override_material(0, background_mat)
+	_apply_background_with_fade()
 
 	if sectionType == GameState.Stage.LAVA:
-		$LeftWall/Node3D2/Veins.set_surface_override_material(0, lava_vine_mat)
-		$LeftWall2/Node3D2/Veins.set_surface_override_material(0, lava_vine_mat)
+		_apply_lava_vein_fade()
 	
 func screen_entered() -> void:
 	is_on_screen = true
@@ -309,3 +317,47 @@ func optimizeParticlesForWebGL() -> void:
 func respawn_timer_expired() -> void:
 	if !is_on_screen:
 		spawn_fish()
+
+func _apply_lava_vein_fade() -> void:
+	# Replace the lava-vein material with a lit shader that matches the
+	# original veins_lava.tres (albedo + emission, matte) but disables
+	# specular so highlights don't shift with the camera, and fades alpha
+	# at the section's top/bottom so neighbor sections don't seam.
+	var albedo := Color(0.634834, 0.108211, 0.0, 1.0)
+	var emission := Color(0.609048, 0.10211, 0.0, 1.0)
+	if lava_vine_mat is StandardMaterial3D:
+		var sm := lava_vine_mat as StandardMaterial3D
+		albedo = sm.albedo_color
+		if sm.emission_enabled:
+			emission = sm.emission
+	var vein_mat := ShaderMaterial.new()
+	vein_mat.shader = _vein_fade_shader
+	vein_mat.set_shader_parameter("albedo_color", albedo)
+	vein_mat.set_shader_parameter("emission_color", emission)
+	vein_mat.set_shader_parameter("world_y_center", global_position.y)
+	vein_mat.set_shader_parameter("section_half_height", _SECTION_HALF_HEIGHT)
+	vein_mat.set_shader_parameter("fade_band", _VEIN_FADE_BAND)
+	if has_node("LeftWall/Node3D2/Veins"):
+		$LeftWall/Node3D2/Veins.set_surface_override_material(0, vein_mat)
+	if has_node("LeftWall2/Node3D2/Veins"):
+		$LeftWall2/Node3D2/Veins.set_surface_override_material(0, vein_mat)
+
+func _apply_background_with_fade() -> void:
+	# Wrap the background's StandardMaterial3D in a ShaderMaterial that fades
+	# alpha near the top/bottom UV edges, and stretch the mesh in Y so the
+	# fade region spills into the neighbor section for a smooth crossfade.
+	if $Background == null or background_mat == null:
+		return
+	var tex: Texture2D = null
+	if background_mat is StandardMaterial3D:
+		tex = (background_mat as StandardMaterial3D).albedo_texture
+	if tex == null:
+		# Fall back to the original material if we can't read a texture.
+		$Background.set_surface_override_material(0, background_mat)
+		return
+	var fade_mat := ShaderMaterial.new()
+	fade_mat.shader = _bg_fade_shader
+	fade_mat.set_shader_parameter("albedo_texture", tex)
+	fade_mat.render_priority = -50
+	$Background.set_surface_override_material(0, fade_mat)
+	$Background.scale = Vector3($Background.scale.x, $Background.scale.y * _BG_Y_OVERSCAN, $Background.scale.z)
