@@ -24,3 +24,14 @@ In Too Fishy, you play as a deep-sea diver exploring the mysterious depths of th
 2. Open Godot Engine
 3. Click "Import" and navigate to the downloaded project folder
 4. Select the "project.godot" file and click "Import & Edit"
+
+## Unity Port
+
+A Unity remake is available in the [`unity/`](unity/) folder.
+
+1. Open `unity/` in **Unity Hub** (2022.3 LTS or newer)
+2. Open `Assets/Scenes/Main.unity`
+3. Press Play
+
+See [`unity/README.md`](unity/README.md) and [`UNITY.md`](UNITY.md) for details.
+
