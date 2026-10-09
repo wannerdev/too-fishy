@@ -13,6 +13,13 @@ namespace TooFishy
             var go = new GameObject("Popup");
             go.transform.position = worldPos;
             var tm = go.AddComponent<TextMesh>();
+            // A TextMesh renders nothing without a font and the font's material
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (font != null)
+            {
+                tm.font = font;
+                go.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+            }
             tm.text = text;
             tm.fontSize = 48;
             tm.characterSize = 0.08f;

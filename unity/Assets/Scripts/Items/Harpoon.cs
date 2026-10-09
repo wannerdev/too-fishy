@@ -31,10 +31,7 @@ namespace TooFishy
             rb.isKinematic = true;
             rb.useGravity = false;
 
-            var mat = new Material(Shader.Find("Standard"));
-            mat.color = new Color(0.75f, 0.55f, 0.25f);
-            mat.SetFloat("_Metallic", 0.6f);
-            go.GetComponent<Renderer>().material = mat;
+            go.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(new Color(0.75f, 0.55f, 0.25f), metallic: 0.6f);
 
             var h = go.AddComponent<Harpoon>();
             h._owner = owner;

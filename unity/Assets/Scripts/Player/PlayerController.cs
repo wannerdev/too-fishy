@@ -89,19 +89,12 @@ namespace TooFishy
 
         void HandleMovement(float dt)
         {
-            float inputX = 0f, inputY = 0f;
-            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) inputX = 1f;
-            else if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) inputX = -1f;
-
-            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
-            {
-                inputY = 1f;
-                if (transform.position.y >= -0.2f) inputY = 0f;
-            }
-            else if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
-                inputY = -1f;
-            else if (transform.position.y >= -0.2f)
-                inputY = -0.3f; // auto-sink at surface when idle
+            // The camera sits at +Z looking toward -Z, so screen-right is world -X.
+            float inputX = -GameInput.Horizontal;
+            float inputY = GameInput.Vertical;
+            bool atSurface = transform.position.y >= -0.2f;
+            if (inputY > 0f && atSurface) inputY = 0f;
+            else if (inputY == 0f && atSurface) inputY = -0.3f; // auto-sink at surface when idle
 
             if (inputX != 0f)
             {
@@ -163,36 +156,37 @@ namespace TooFishy
         void HandleActions()
         {
             var gs = GameState.Instance;
-            if (Input.GetMouseButtonDown(0) && _harpoonCd <= 0f)
-                ShootHarpoon();
+            bool fire = GameInput.ConsumeFire(out Vector2 aimScreenPos);
+            if (fire && _harpoonCd <= 0f)
+                ShootHarpoon(aimScreenPos);
 
-            if (Input.GetKeyDown(KeyCode.B) && gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0 && _buoyCd <= 0f)
+            if (GameInput.ConsumeBuoy() && gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0 && _buoyCd <= 0f)
             {
                 Teleport(new Vector3(transform.position.x, -1f, 0.33f));
                 _buoyCd = BuoyCooldown;
             }
 
-            if (Input.GetKeyDown(KeyCode.Q) && gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0 && _droneCd <= 0f)
+            if (GameInput.ConsumeDrone() && gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0 && _droneCd <= 0f)
             {
                 int sold = gs.Inventory.SellItems();
                 if (sold > 0) PopupText.Show($"+${sold} (drone)", transform.position + Vector3.up);
                 _droneCd = DroneCooldown;
             }
 
-            if (Input.GetKeyDown(KeyCode.Space) && gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0)
+            if (GameInput.ConsumePickaxe() && gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0)
                 SwingPickaxe();
         }
 
-        void ShootHarpoon()
+        void ShootHarpoon(Vector2 aimScreenPos)
         {
             _harpoonCd = HarpoonCooldown;
             Vector3 dir;
             var gs = GameState.Instance;
             if (gs.GetUpgradeLevel(Upgrade.HarpoonRotation) > 0 && _cam != null)
             {
-                var mouse = Input.mousePosition;
-                mouse.z = Mathf.Abs(_cam.transform.position.z - transform.position.z);
-                var world = _cam.ScreenToWorldPoint(mouse);
+                Vector3 aim = aimScreenPos;
+                aim.z = Mathf.Abs(_cam.transform.position.z - transform.position.z);
+                var world = _cam.ScreenToWorldPoint(aim);
                 dir = (world - _launchPoint.position);
                 dir.z = 0f;
                 if (dir.sqrMagnitude < 0.01f) dir = _facingRight ? Vector3.right : Vector3.left;
@@ -209,7 +203,8 @@ namespace TooFishy
             var hits = Physics.OverlapSphere(transform.position + (_facingRight ? Vector3.right : Vector3.left) * 1.2f, 1.2f);
             foreach (var h in hits)
             {
-                var barrier = h.GetComponent<DestroyableBarrier>();
+                // The component sits on the barrier root; the hit collider is one of its blocks.
+                var barrier = h.GetComponentInParent<DestroyableBarrier>();
                 if (barrier != null) barrier.TakeDamage(1);
             }
         }

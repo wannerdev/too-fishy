@@ -1,0 +1,5 @@
+<linker>
+  <!-- The scene serialises CapsuleCollider/MeshCollider/etc.; keep the whole physics module so
+       engine code stripping in IL2CPP/WebGL builds does not drop types only referenced by the scene. -->
+  <assembly fullname="UnityEngine.PhysicsModule" preserve="all"/>
+</linker>

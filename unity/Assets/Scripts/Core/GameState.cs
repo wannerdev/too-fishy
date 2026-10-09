@@ -78,6 +78,9 @@ namespace TooFishy
         public bool EnableIntroMission = false; // Start in normal mode for Unity port by default
 
         public Inventory Inventory { get; private set; } = new();
+
+        /// <summary>Section indices whose stage barrier has been smashed, so streaming never rebuilds them.</summary>
+        public readonly HashSet<int> DestroyedBarriers = new();
         public Transform PlayerTransform { get; set; }
         public PlayerController Player { get; set; }
 

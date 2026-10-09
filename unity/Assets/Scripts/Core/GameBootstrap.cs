@@ -15,6 +15,9 @@ namespace TooFishy
 
         void Awake()
         {
+            // Phones and WebGL default to 30 fps otherwise
+            Application.targetFrameRate = 60;
+
             // Ensure tags exist at runtime for built player (editor has TagManager)
             EnsureTags();
 
@@ -58,7 +61,8 @@ namespace TooFishy
             light.type = LightType.Directional;
             light.color = new Color(0.7f, 0.85f, 1f);
             light.intensity = 0.85f;
-            lightGo.transform.rotation = Quaternion.Euler(40f, -30f, 0f);
+            // The camera looks toward -Z, so the sun must shine toward -Z to light what it sees.
+            lightGo.transform.rotation = Quaternion.Euler(40f, 150f, 0f);
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.15f, 0.25f, 0.35f);
         }
@@ -85,10 +89,8 @@ namespace TooFishy
             body.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             body.transform.localScale = new Vector3(0.7f, 1.1f, 0.7f);
             Object.Destroy(body.GetComponent<Collider>());
-            var bm = new Material(Shader.Find("Standard"));
-            bm.color = new Color(0.85f, 0.55f, 0.15f);
-            bm.SetFloat("_Metallic", 0.4f);
-            body.GetComponent<Renderer>().material = bm;
+            var bm = Materials.Opaque(new Color(0.85f, 0.55f, 0.15f), metallic: 0.4f);
+            body.GetComponent<Renderer>().sharedMaterial = bm;
 
             // Conning tower
             var tower = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -97,7 +99,7 @@ namespace TooFishy
             tower.transform.localPosition = new Vector3(0f, 0.45f, 0f);
             tower.transform.localScale = new Vector3(0.4f, 0.35f, 0.4f);
             Object.Destroy(tower.GetComponent<Collider>());
-            tower.GetComponent<Renderer>().material = bm;
+            tower.GetComponent<Renderer>().sharedMaterial = bm;
 
             // Propeller
             var prop = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -107,9 +109,7 @@ namespace TooFishy
             prop.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             prop.transform.localScale = new Vector3(0.35f, 0.08f, 0.35f);
             Object.Destroy(prop.GetComponent<Collider>());
-            var pm = new Material(Shader.Find("Standard"));
-            pm.color = new Color(0.3f, 0.3f, 0.35f);
-            prop.GetComponent<Renderer>().material = pm;
+            prop.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(new Color(0.3f, 0.3f, 0.35f));
 
             var launch = new GameObject("HarpoonLaunchPoint").transform;
             launch.SetParent(pivot, false);
@@ -133,6 +133,8 @@ namespace TooFishy
             var lamp = new GameObject("Lamp");
             lamp.transform.SetParent(pivot, false);
             lamp.transform.localPosition = new Vector3(0.9f, 0.1f, 0f);
+            // Shine along the submarine's nose (+X in pivot space; the pivot flips with facing)
+            lamp.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
             var spot = lamp.AddComponent<Light>();
             spot.type = LightType.Spot;
             spot.range = 25f;
@@ -154,12 +156,14 @@ namespace TooFishy
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
 
-            if (FindObjectOfType<EventSystem>() == null)
+            if (FindFirstObjectByType<EventSystem>() == null)
             {
-                var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+                new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
             }
 
             GameHUD.Create(canvasGo.transform);
+            if (GameInput.TouchMode)
+                TouchControls.Create(canvasGo.transform);
         }
     }
 

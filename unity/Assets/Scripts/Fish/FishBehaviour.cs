@@ -23,7 +23,9 @@ namespace TooFishy
 
             if (stats.RequiresBossDefeat && !GameState.Instance.BossEncountered && !BossController.IsDefeated)
                 return null;
-            if (GameState.Instance.Depth < stats.MinRequiredDepth && stats.MinRequiredDepth > 0)
+            // Gate on the deepest point the player has reached, not the current depth: sections
+            // (and their fish) are created while the player is still above them.
+            if (stats.MinRequiredDepth > 0 && GameState.Instance.MaxDepthReached < stats.MinRequiredDepth)
                 return null;
 
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -52,14 +54,10 @@ namespace TooFishy
             var s = stats.Scale;
             go.transform.localScale = new Vector3(s.x * scaleMul, s.y * scaleMul, s.z);
 
-            var mat = new Material(Shader.Find("Standard"));
-            mat.color = shiny ? Color.Lerp(stats.Color, Color.white, 0.55f) : stats.Color;
-            if (shiny)
-            {
-                mat.EnableKeyword("_EMISSION");
-                mat.SetColor("_EmissionColor", stats.Color * 0.8f);
-            }
-            go.GetComponent<Renderer>().material = mat;
+            var mat = shiny
+                ? Materials.Emissive(Color.Lerp(stats.Color, Color.white, 0.55f), stats.Color * 0.8f)
+                : Materials.Opaque(stats.Color);
+            go.GetComponent<Renderer>().sharedMaterial = mat;
 
             // Simple fin
             var fin = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -68,7 +66,7 @@ namespace TooFishy
             fin.transform.localPosition = new Vector3(-0.6f, 0f, 0f);
             fin.transform.localScale = new Vector3(0.4f, 0.5f, 0.15f);
             Object.Destroy(fin.GetComponent<Collider>());
-            fin.GetComponent<Renderer>().material = mat;
+            fin.GetComponent<Renderer>().sharedMaterial = mat;
 
             var fish = go.AddComponent<FishBehaviour>();
             fish.Type = type;
@@ -116,10 +114,15 @@ namespace TooFishy
                 }
             }
 
-            // Scatter from player
+            // Scatter from player; despawn once far away so the fish count stays bounded
             var player = GameState.Instance?.PlayerTransform;
             if (player != null)
             {
+                if (Mathf.Abs(p.y - player.position.y) > 130f)
+                {
+                    Destroy(gameObject);
+                    return;
+                }
                 float dist = Vector3.Distance(transform.position, player.position);
                 if (dist < 3f && Random.value < 0.02f)
                     Scatter(player);

@@ -2,13 +2,21 @@ using UnityEngine;
 
 namespace TooFishy
 {
+    /// <summary>
+    /// Wall of blocks that seals a stage transition until the pickaxe breaks it. Spans the whole
+    /// play area (x -14..6) so it cannot be swum around.
+    /// </summary>
     public class DestroyableBarrier : MonoBehaviour
     {
         public int Health = 3;
         int _max;
+        int _key;
         Renderer[] _renderers;
 
-        public static DestroyableBarrier Create(Transform parent, float y, int hp)
+        static readonly Color IntactColor = new(0.4f, 0.35f, 0.3f);
+        static readonly Color BrokenColor = new(0.8f, 0.2f, 0.1f);
+
+        public static DestroyableBarrier Create(Transform parent, float y, int hp, int key)
         {
             var root = new GameObject("Barrier");
             root.transform.SetParent(parent, false);
@@ -18,23 +26,25 @@ namespace TooFishy
             var barrier = root.AddComponent<DestroyableBarrier>();
             barrier.Health = hp;
             barrier._max = hp;
+            barrier._key = key;
 
-            var mats = new System.Collections.Generic.List<Renderer>();
-            for (int i = 0; i < 9; i++)
+            const int cols = 9, rows = 2;
+            var renderers = new Renderer[cols * rows];
+            var mat = Materials.Opaque(IntactColor);
+            for (int i = 0; i < renderers.Length; i++)
             {
                 var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 box.name = $"Block_{i}";
                 box.transform.SetParent(root.transform, false);
-                int row = i / 3;
-                int col = i % 3;
-                box.transform.localPosition = new Vector3((col - 1) * 2.2f, (row - 1) * 2.2f, 0f);
-                box.transform.localScale = new Vector3(2f, 2f, 1.5f);
-                var mat = new Material(Shader.Find("Standard"));
-                mat.color = new Color(0.4f, 0.35f, 0.3f);
-                box.GetComponent<Renderer>().material = mat;
-                mats.Add(box.GetComponent<Renderer>());
+                int row = i / cols;
+                int col = i % cols;
+                box.transform.localPosition = new Vector3((col - (cols - 1) / 2f) * 2.2f, (row - (rows - 1) / 2f) * 2.2f, 0f);
+                box.transform.localScale = new Vector3(2.1f, 2.1f, 1.5f);
+                var r = box.GetComponent<Renderer>();
+                r.sharedMaterial = mat;
+                renderers[i] = r;
             }
-            barrier._renderers = mats.ToArray();
+            barrier._renderers = renderers;
             return barrier;
         }
 
@@ -42,15 +52,17 @@ namespace TooFishy
         {
             Health -= amount;
             float t = 1f - (float)Health / _max;
+            // One shared material per damage step instead of a new instance per block per hit
+            var damaged = Materials.Opaque(Color.Lerp(IntactColor, BrokenColor, t));
             foreach (var r in _renderers)
             {
-                if (r != null)
-                    r.material.color = Color.Lerp(new Color(0.4f, 0.35f, 0.3f), new Color(0.8f, 0.2f, 0.1f), t);
+                if (r != null) r.sharedMaterial = damaged;
             }
             PopupText.Show("!", transform.position);
             if (Health <= 0)
             {
                 PopupText.Show("Barrier destroyed!", transform.position);
+                GameState.Instance?.DestroyedBarriers.Add(_key);
                 Destroy(gameObject);
             }
         }

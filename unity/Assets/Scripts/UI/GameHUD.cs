@@ -10,6 +10,7 @@ namespace TooFishy
         GameObject _upgradePanel;
         GameObject _deathPanel;
         bool _upgradesVisible;
+        bool _dirty = true;
 
         public static GameHUD Create(Transform canvasRoot)
         {
@@ -28,11 +29,13 @@ namespace TooFishy
             _stage = MakeLabel(canvas, "StageText", new Vector2(20, -120), TextAnchor.UpperLeft, 20);
             _hint = MakeLabel(canvas, "HintText", new Vector2(0, 30), TextAnchor.LowerCenter, 18);
             _hint.alignment = TextAnchor.MiddleCenter;
-            _hint.text = "WASD/Arrows move · LMB harpoon · E upgrades at dock · Esc pause";
+            _hint.text = GameInput.TouchMode
+                ? "Left: drag to steer · Right: tap to harpoon · SHOP appears at the dock"
+                : "WASD/Arrows move · LMB harpoon · E upgrades at dock · Esc pause";
 
             // Health bar
             var barBg = MakePanel(canvas, "HealthBarBg", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(-150, -30), new Vector2(300, 18), new Color(0.1f, 0.1f, 0.1f, 0.7f));
+                new Vector2(0, -30), new Vector2(300, 18), new Color(0.1f, 0.1f, 0.1f, 0.7f));
             var fillGo = new GameObject("Fill", typeof(RectTransform), typeof(Image));
             fillGo.transform.SetParent(barBg.transform, false);
             var frt = fillGo.GetComponent<RectTransform>();
@@ -54,10 +57,10 @@ namespace TooFishy
             var gs = GameState.Instance;
             if (gs != null)
             {
-                gs.OnInventoryUpdated += Refresh;
-                gs.OnMoneyChanged += Refresh;
-                gs.OnHealthChanged += Refresh;
-                gs.OnDepthChanged += Refresh;
+                gs.OnInventoryUpdated += MarkDirty;
+                gs.OnMoneyChanged += MarkDirty;
+                gs.OnHealthChanged += MarkDirty;
+                gs.OnDepthChanged += MarkDirty;
                 gs.OnUpgradesChanged += RefreshUpgrades;
                 gs.OnDeath += ShowDeath;
                 gs.OnRespawn += HideDeath;
@@ -70,23 +73,45 @@ namespace TooFishy
             var gs = GameState.Instance;
             if (gs == null) return;
 
-            if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Tab))
+            if (GameInput.ConsumeShop())
             {
                 if (gs.IsDocked || _upgradesVisible)
                     ToggleUpgrades();
             }
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (GameInput.ConsumePause() && !gs.DeathScreen)
             {
                 gs.Paused = !gs.Paused;
                 Time.timeScale = gs.Paused ? 0f : 1f;
             }
-            Refresh();
+            // The shop only works at the dock; swimming away closes it.
+            if (_upgradesVisible && !gs.IsDocked)
+            {
+                _upgradesVisible = false;
+                _dirty = true;
+            }
+            if (_dirty) Refresh();
+        }
+
+        void MarkDirty() => _dirty = true;
+
+        void OnDestroy()
+        {
+            var gs = GameState.Instance;
+            if (gs == null) return;
+            gs.OnInventoryUpdated -= MarkDirty;
+            gs.OnMoneyChanged -= MarkDirty;
+            gs.OnHealthChanged -= MarkDirty;
+            gs.OnDepthChanged -= MarkDirty;
+            gs.OnUpgradesChanged -= RefreshUpgrades;
+            gs.OnDeath -= ShowDeath;
+            gs.OnRespawn -= HideDeath;
         }
 
         void Refresh()
         {
             var gs = GameState.Instance;
             if (gs == null) return;
+            _dirty = false;
             _depth.text = $"Depth: {gs.Depth}m";
             _money.text = $"${gs.Money}";
             _cargo.text = $"Cargo: {gs.Inventory.TotalWeight:F0}/{gs.Inventory.GetMaxWeight()} kg  ({gs.Inventory.FishesCaught} fish, ${gs.Inventory.TotalValue})";
@@ -101,7 +126,7 @@ namespace TooFishy
             }
 
             if (_upgradePanel != null)
-                _upgradePanel.SetActive(_upgradesVisible && (gs.IsDocked || gs.Paused));
+                _upgradePanel.SetActive(_upgradesVisible && gs.IsDocked);
         }
 
         void ToggleUpgrades()
@@ -114,7 +139,7 @@ namespace TooFishy
         void BuildUpgradePanel(RectTransform canvas)
         {
             _upgradePanel = MakePanel(canvas, "UpgradePanel", new Vector2(1, 0.5f), new Vector2(1, 0.5f),
-                new Vector2(-420, -250), new Vector2(400, 500), new Color(0.05f, 0.1f, 0.18f, 0.92f)).gameObject;
+                new Vector2(-20, 0), new Vector2(400, 560), new Color(0.05f, 0.1f, 0.18f, 0.92f)).gameObject;
             _upgradePanel.SetActive(false);
 
             var title = MakeLabel(_upgradePanel.GetComponent<RectTransform>(), "Title", new Vector2(20, -15), TextAnchor.UpperLeft, 24);
@@ -131,7 +156,7 @@ namespace TooFishy
         void CreateUpgradeButton(RectTransform parent, Upgrade upgrade, ref float y)
         {
             var btnGo = MakePanel(parent, $"Up_{upgrade}", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(-180, y), new Vector2(360, 32), new Color(0.12f, 0.22f, 0.35f, 1f));
+                new Vector2(0, y), new Vector2(360, 32), new Color(0.12f, 0.22f, 0.35f, 1f));
             var label = MakeLabel(btnGo.GetComponent<RectTransform>(), "L", new Vector2(10, 0), TextAnchor.MiddleLeft, 16);
             label.alignment = TextAnchor.MiddleLeft;
             var lrt = label.GetComponent<RectTransform>();
@@ -176,7 +201,7 @@ namespace TooFishy
         void BuildDeathPanel(RectTransform canvas)
         {
             _deathPanel = MakePanel(canvas, "DeathPanel", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-200, -100), new Vector2(400, 200), new Color(0.15f, 0.02f, 0.02f, 0.95f)).gameObject;
+                new Vector2(0, 0), new Vector2(400, 200), new Color(0.15f, 0.02f, 0.02f, 0.95f)).gameObject;
             var title = MakeLabel(_deathPanel.GetComponent<RectTransform>(), "DeathTitle", new Vector2(0, -30), TextAnchor.UpperCenter, 36);
             title.alignment = TextAnchor.UpperCenter;
             title.text = "You drowned...";
@@ -184,7 +209,7 @@ namespace TooFishy
             hrt.anchoredPosition = new Vector2(0, -30);
 
             var btnGo = MakePanel(_deathPanel.GetComponent<RectTransform>(), "RespawnBtn", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(-80, 30), new Vector2(160, 40), new Color(0.25f, 0.45f, 0.7f, 1f));
+                new Vector2(0, 30), new Vector2(160, 40), new Color(0.25f, 0.45f, 0.7f, 1f));
             var bl = MakeLabel(btnGo.GetComponent<RectTransform>(), "BL", Vector2.zero, TextAnchor.MiddleCenter, 22);
             bl.alignment = TextAnchor.MiddleCenter;
             bl.text = "Respawn";
@@ -225,24 +250,11 @@ namespace TooFishy
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = (anchorMin + anchorMax) * 0.5f;
-            if (anchorMin == anchorMax)
-            {
-                rt.anchorMin = anchorMin;
-                rt.anchorMax = anchorMax;
-            }
-            else
-            {
-                rt.anchorMin = anchorMin;
-                rt.anchorMax = anchorMax;
-            }
-            // For our usage we pass same min/max as pivot point
+            // Anchor and pivot coincide, so anchoredPos is the offset of that corner/edge from the
+            // same point of the parent (e.g. (0,-30) with a top-centre anchor = 30 px below the top).
             rt.anchorMin = anchorMin;
             rt.anchorMax = anchorMax;
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            if (anchorMin.x >= 0.99f) rt.pivot = new Vector2(1f, 0.5f);
-            if (anchorMin.y >= 0.99f && anchorMin.x < 0.6f) rt.pivot = new Vector2(0.5f, 1f);
-            if (anchorMin == new Vector2(1, 0.5f)) { rt.pivot = new Vector2(1, 0.5f); }
+            rt.pivot = anchorMin;
             rt.anchoredPosition = anchoredPos;
             rt.sizeDelta = size;
             var img = go.GetComponent<Image>();

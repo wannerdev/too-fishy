@@ -13,6 +13,7 @@ namespace TooFishy
         float _bobTime;
         Vector3 _origin;
         Transform _player;
+        PlayerController _playerController;
 
         public static void TrySpawn(Transform worldRoot)
         {
@@ -38,11 +39,8 @@ namespace TooFishy
             rb.isKinematic = true;
             rb.useGravity = false;
 
-            var mat = new Material(Shader.Find("Standard"));
-            mat.color = new Color(1f, 0.55f, 0.6f);
-            mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", new Color(0.5f, 0.15f, 0.2f));
-            go.GetComponent<Renderer>().material = mat;
+            go.GetComponent<Renderer>().sharedMaterial =
+                Materials.Emissive(new Color(1f, 0.55f, 0.6f), new Color(0.5f, 0.15f, 0.2f));
 
             // Eyes
             for (int i = 0; i < 2; i++)
@@ -52,9 +50,7 @@ namespace TooFishy
                 eye.transform.localPosition = new Vector3(i == 0 ? -0.25f : 0.25f, 0.2f, -0.45f);
                 eye.transform.localScale = new Vector3(0.15f, 0.2f, 0.1f);
                 Object.Destroy(eye.GetComponent<Collider>());
-                var em = new Material(Shader.Find("Standard"));
-                em.color = Color.black;
-                eye.GetComponent<Renderer>().material = em;
+                eye.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(Color.black);
             }
 
             var boss = go.AddComponent<BossController>();
@@ -65,6 +61,7 @@ namespace TooFishy
         void Start()
         {
             _player = GameState.Instance?.PlayerTransform;
+            _playerController = _player != null ? _player.GetComponent<PlayerController>() : null;
         }
 
         void Update()
@@ -74,12 +71,10 @@ namespace TooFishy
 
             if (_player != null)
             {
+                // Boss collider radius (0.6 * scale 6 = 3.6) plus the submarine radius (0.5)
                 float dist = Vector3.Distance(transform.position, _player.position);
-                if (dist < 4f)
-                {
-                    var pc = _player.GetComponent<PlayerController>();
-                    pc?.Hurt(2);
-                }
+                if (dist < 4.3f && _playerController != null)
+                    _playerController.Hurt(2);
             }
         }
 
@@ -93,6 +88,8 @@ namespace TooFishy
             {
                 GameState.Instance.CompleteIntroMission(transform.position);
                 Destroy(gameObject);
+                // The intro boss escapes; it must be able to reappear in the normal game.
+                ResetFlags();
                 return;
             }
 

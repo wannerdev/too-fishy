@@ -3,15 +3,25 @@ using UnityEngine;
 
 namespace TooFishy
 {
+    /// <summary>
+    /// Streams the world around the player: sections within <see cref="ViewDistance"/> above and
+    /// below exist, everything else is destroyed and rebuilt when the player comes back. Fish are
+    /// re-stocked only after <see cref="FishRespawnDelay"/>, so swimming up and down does not farm.
+    /// </summary>
     public class LevelGenerator : MonoBehaviour
     {
         public float SectionHeight = 25f;
-        public int Preload = 2;
+        public float ViewDistance = 80f;
+        public float FishRespawnDelay = 90f;
 
-        float _lastSpawned = -10f;
-        readonly List<GameObject> _sections = new();
+        const float FirstSectionY = -10.5f;
+
+        readonly Dictionary<int, GameObject> _sections = new();
+        readonly Dictionary<int, float> _fishSpawnedAt = new();
+        readonly List<int> _toRemove = new();
         Transform _fishRoot;
         Transform _worldRoot;
+        float _lowestSectionY = FirstSectionY;
 
         public void Initialize(Transform worldRoot)
         {
@@ -21,79 +31,80 @@ namespace TooFishy
 
             BuildSurfaceDock();
             BuildSideWalls();
-            // Initial sections
-            SpawnSection(-10.5f, Stage.Surface, false);
-            _lastSpawned = -35f;
-            SpawnSection(_lastSpawned, Stage.Surface, false);
-            for (int i = 0; i < Preload; i++)
-                TrySpawnAhead(-999f);
+            UpdateSections(0f);
         }
 
         void Update()
         {
             var player = GameState.Instance?.PlayerTransform;
             if (player == null) return;
-            TrySpawnAhead(player.position.y);
+            UpdateSections(player.position.y);
+            GameState.Instance.FishesLowerBorder = _lowestSectionY - SectionHeight / 2f - 1f;
+        }
 
-            // Cull far sections
-            float py = player.position.y;
-            for (int i = _sections.Count - 1; i >= 0; i--)
+        float SectionY(int index) => FirstSectionY - index * SectionHeight;
+        int IndexAt(float y) => Mathf.Max(0, Mathf.RoundToInt((FirstSectionY - y) / SectionHeight));
+
+        void UpdateSections(float playerY)
+        {
+            int first = IndexAt(playerY + ViewDistance);
+            int last = IndexAt(playerY - ViewDistance);
+            for (int i = first; i <= last; i++)
             {
-                if (_sections[i] == null) { _sections.RemoveAt(i); continue; }
-                if (_sections[i].transform.position.y > py + 80f)
-                {
-                    Destroy(_sections[i]);
-                    _sections.RemoveAt(i);
-                }
+                if (!_sections.ContainsKey(i)) SpawnSection(i);
             }
 
-            GameState.Instance.FishesLowerBorder = _lastSpawned - SectionHeight / 2f - 1f;
-        }
-
-        void TrySpawnAhead(float playerY)
-        {
-            while (playerY < _lastSpawned + SectionHeight)
+            _toRemove.Clear();
+            foreach (var kv in _sections)
             {
-                _lastSpawned -= SectionHeight;
-                int depth = Mathf.Max(0, Mathf.RoundToInt(-_lastSpawned));
-                int band = (depth / 100) * 100;
-                Stage stage = Stage.Surface;
-                foreach (var kv in GameState.DepthStageMap)
-                    if (band >= kv.Key) stage = kv.Value;
-
-                bool barrier = IsStageTransition(_lastSpawned + SectionHeight, _lastSpawned);
-                SpawnSection(_lastSpawned, stage, barrier);
+                if (kv.Value == null || kv.Key < first - 1 || kv.Key > last + 1) _toRemove.Add(kv.Key);
             }
+            foreach (int i in _toRemove)
+            {
+                if (_sections[i] != null) Destroy(_sections[i]);
+                _sections.Remove(i);
+            }
+
+            _lowestSectionY = SectionY(last);
         }
 
-        bool IsStageTransition(float prevY, float newY)
+        static Stage StageForDepth(int depth)
         {
-            int d0 = (Mathf.Max(0, Mathf.RoundToInt(-prevY)) / 100) * 100;
-            int d1 = (Mathf.Max(0, Mathf.RoundToInt(-newY)) / 100) * 100;
-            return d0 != d1 && d1 > 0;
+            int band = (depth / 100) * 100;
+            Stage stage = Stage.Surface;
+            foreach (var kv in GameState.DepthStageMap)
+                if (band >= kv.Key) stage = kv.Value;
+            return stage;
         }
 
-        void SpawnSection(float y, Stage stage, bool withBarrier)
+        void SpawnSection(int index)
         {
-            var section = new GameObject($"Section_{stage}_{y:F0}");
+            float y = SectionY(index);
+            int depth = Mathf.Max(0, Mathf.RoundToInt(-y));
+            Stage stage = StageForDepth(depth);
+
+            // A barrier seals the first section of every new stage band below the surface
+            int prevDepth = index == 0 ? 0 : Mathf.Max(0, Mathf.RoundToInt(-SectionY(index - 1)));
+            bool stageTransition = (depth / 100) != (prevDepth / 100) && depth >= 100;
+
+            var section = new GameObject($"Section_{stage}_{index}");
             section.transform.SetParent(_worldRoot, false);
             section.transform.position = new Vector3(0f, y, 0f);
-            _sections.Add(section);
+            _sections[index] = section;
 
-            // Background panel
+            // Background panel, facing the camera (the camera looks toward -Z, so the quad faces +Z)
             var bg = GameObject.CreatePrimitive(PrimitiveType.Quad);
             bg.name = "Background";
             bg.transform.SetParent(section.transform, false);
             bg.transform.localPosition = new Vector3(-4f, 0f, -8f);
+            bg.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             bg.transform.localScale = new Vector3(40f, SectionHeight + 2f, 1f);
             Object.Destroy(bg.GetComponent<Collider>());
-            var bgMat = new Material(Shader.Find("Standard"));
             var fog = FishConfig.StageFogColor(stage);
-            bgMat.color = Color.Lerp(fog, Color.black, 0.4f);
-            bgMat.SetFloat("_Glossiness", 0.1f);
-            bg.GetComponent<Renderer>().material = bgMat;
+            bg.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(Color.Lerp(fog, Color.black, 0.4f), glossiness: 0.1f);
 
             // Decorative rocks
+            var rockMat = Materials.Opaque(stage >= Stage.Hot ? new Color(0.35f, 0.15f, 0.1f) : new Color(0.25f, 0.28f, 0.32f));
             int rocks = Random.Range(2, 5);
             for (int i = 0; i < rocks; i++)
             {
@@ -104,17 +115,14 @@ namespace TooFishy
                 rock.transform.localPosition = new Vector3(side + Random.Range(-1.5f, 1.5f), Random.Range(-SectionHeight / 2f, SectionHeight / 2f), -1f);
                 rock.transform.localScale = new Vector3(Random.Range(1f, 3f), Random.Range(1f, 4f), Random.Range(1f, 2f));
                 rock.transform.rotation = Quaternion.Euler(Random.Range(0, 30), Random.Range(0, 360), Random.Range(0, 30));
-                var rm = new Material(Shader.Find("Standard"));
-                rm.color = stage >= Stage.Hot
-                    ? new Color(0.35f, 0.15f, 0.1f)
-                    : new Color(0.25f, 0.28f, 0.32f);
-                rock.GetComponent<Renderer>().material = rm;
+                rock.GetComponent<Renderer>().sharedMaterial = rockMat;
             }
 
-            if (withBarrier && !GameState.Instance.IsIntro())
+            var gs = GameState.Instance;
+            if (stageTransition && gs != null && !gs.IsIntro() && !gs.DestroyedBarriers.Contains(index))
             {
                 int hp = 2 + (int)stage;
-                DestroyableBarrier.Create(section.transform, y, hp);
+                DestroyableBarrier.Create(section.transform, y, hp, index);
             }
 
             if (stage >= Stage.Lava)
@@ -129,18 +137,18 @@ namespace TooFishy
                 var trigger = lava.AddComponent<BoxCollider>();
                 trigger.isTrigger = true;
                 trigger.size = Vector3.one;
-                var lm = new Material(Shader.Find("Standard"));
-                lm.color = new Color(1f, 0.25f, 0.05f);
-                lm.EnableKeyword("_EMISSION");
-                lm.SetColor("_EmissionColor", new Color(2f, 0.4f, 0.05f));
-                lava.GetComponent<Renderer>().material = lm;
+                lava.GetComponent<Renderer>().sharedMaterial = Materials.Emissive(new Color(1f, 0.25f, 0.05f), new Color(2f, 0.4f, 0.05f));
                 lava.AddComponent<LavaZone>();
             }
 
-            SpawnFishInSection(section.transform, y, stage);
+            if (!_fishSpawnedAt.TryGetValue(index, out float spawnedAt) || Time.time - spawnedAt > FishRespawnDelay)
+            {
+                SpawnFishInSection(y, stage);
+                _fishSpawnedAt[index] = Time.time;
+            }
         }
 
-        void SpawnFishInSection(Transform section, float y, Stage stage)
+        void SpawnFishInSection(float y, Stage stage)
         {
             var cfg = FishConfig.Sections[stage];
             int count = Random.Range(cfg.MaxFishAmount / 2, cfg.MaxFishAmount + 1);
@@ -163,9 +171,7 @@ namespace TooFishy
             dock.transform.SetParent(_worldRoot, false);
             dock.transform.position = new Vector3(-2f, 0.4f, 0f);
             dock.transform.localScale = new Vector3(8f, 0.4f, 3f);
-            var mat = new Material(Shader.Find("Standard"));
-            mat.color = new Color(0.45f, 0.3f, 0.15f);
-            dock.GetComponent<Renderer>().material = mat;
+            dock.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(new Color(0.45f, 0.3f, 0.15f));
 
             // Surface water plane
             var water = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -175,37 +181,31 @@ namespace TooFishy
             water.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             water.transform.localScale = new Vector3(40f, 20f, 1f);
             Object.Destroy(water.GetComponent<Collider>());
-            var wm = new Material(Shader.Find("Standard"));
-            wm.color = new Color(0.2f, 0.55f, 0.8f, 0.5f);
-            wm.SetFloat("_Mode", 3);
-            wm.SetFloat("_Glossiness", 0.9f);
-            water.GetComponent<Renderer>().material = wm;
+            water.GetComponent<Renderer>().sharedMaterial = Materials.Transparent(new Color(0.2f, 0.55f, 0.8f, 0.5f), glossiness: 0.9f);
 
-            // Sky box above surface
+            // Sky above the surface, facing the camera
             var sky = GameObject.CreatePrimitive(PrimitiveType.Quad);
             sky.name = "Sky";
             sky.transform.SetParent(_worldRoot, false);
             sky.transform.position = new Vector3(-4f, 8f, -8f);
+            sky.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             sky.transform.localScale = new Vector3(40f, 16f, 1f);
             Object.Destroy(sky.GetComponent<Collider>());
-            var sm = new Material(Shader.Find("Standard"));
-            sm.color = new Color(0.45f, 0.7f, 0.95f);
-            sky.GetComponent<Renderer>().material = sm;
+            sky.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(new Color(0.45f, 0.7f, 0.95f));
         }
 
         void BuildSideWalls()
         {
-            // Tall walls so player can't swim too far sideways
+            // Tall walls so the player can't swim too far sideways; deep enough for the Void stage
+            var mat = Materials.Opaque(new Color(0.15f, 0.18f, 0.22f));
             foreach (var x in new[] { -15f, 7f })
             {
                 var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 wall.name = "SideWall";
                 wall.transform.SetParent(_worldRoot, false);
-                wall.transform.position = new Vector3(x, -300f, 0f);
-                wall.transform.localScale = new Vector3(2f, 700f, 4f);
-                var mat = new Material(Shader.Find("Standard"));
-                mat.color = new Color(0.15f, 0.18f, 0.22f);
-                wall.GetComponent<Renderer>().material = mat;
+                wall.transform.position = new Vector3(x, -1000f, 0f);
+                wall.transform.localScale = new Vector3(2f, 2100f, 4f);
+                wall.GetComponent<Renderer>().sharedMaterial = mat;
             }
         }
     }
