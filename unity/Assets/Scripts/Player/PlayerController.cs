@@ -136,8 +136,8 @@ namespace TooFishy
             _externalForces = Vector3.Lerp(_externalForces, Vector3.zero, 5f * dt);
             // player.gd calls move_and_slide() twice per physics tick (movement() and
             // collision()) with the same velocity, so the submarine covers twice the distance.
-            _cc.Move(move * dt);
-            _cc.Move(move * dt);
+            _cc.Move(LimitByFish(move * dt));
+            _cc.Move(LimitByFish(move * dt));
 
             // Lock Z
             var p = transform.position;
@@ -147,6 +147,45 @@ namespace TooFishy
 
             RockingMotion(dt, move);
         }
+
+        /// <summary>
+        /// Godot's "push a fish" quirk is emergent: two CharacterBody3Ds meet, the submarine is
+        /// held back and the fish is shoved out of the hull a little every tick. Measured in Godot
+        /// 4.5.1 (sub pushing a fish upward): the sub only advances ~1.3 m/s into the fish instead
+        /// of 4.8 m/s, the fish rises at the same speed, turns every ~0.15 s and eventually slides
+        /// off the round hull. Here the motion into an overlapped fish is capped at that speed and
+        /// FishBehaviour.ResolveCollisions shoves the fish out of the hull.
+        /// </summary>
+        Vector3 LimitByFish(Vector3 motion)
+        {
+            if (_hull == null) _hull = transform.Find("Hull")?.GetComponent<CapsuleCollider>();
+            if (_hull == null || motion.sqrMagnitude < 1e-8f) return motion;
+
+            // two Move() calls per frame share the measured speed
+            float allowed = FishPushSpeed * Time.deltaTime * 0.5f;
+            var hullPos = _hull.transform.position + motion;
+            var hullRot = _hull.transform.rotation;
+            int n = Physics.OverlapSphereNonAlloc(hullPos, 2.5f, FishHits, 1 << Layers.Fish, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var fishCol = FishHits[i];
+                if (fishCol == null) continue;
+                if (!Physics.ComputePenetration(_hull, hullPos, hullRot, fishCol, fishCol.transform.position, fishCol.transform.rotation,
+                        out var outDir, out float depth))
+                    continue;
+                outDir.z = 0f;
+                if (outDir.sqrMagnitude < 1e-6f) continue;
+                outDir.Normalize();
+                // outDir pushes the hull out of the fish; the motion against it goes into the fish
+                float into = -Vector3.Dot(motion, outDir);
+                if (into > allowed) motion += outDir * (into - allowed);
+            }
+            return motion;
+        }
+
+        const float FishPushSpeed = 1.3f;
+        CapsuleCollider _hull;
+        static readonly Collider[] FishHits = new Collider[16];
 
         // player.gd rockingMotion(): slow sway when idle, tilt against horizontal motion, ±8°.
         void RockingMotion(float dt, Vector3 velocity)
