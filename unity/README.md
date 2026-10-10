@@ -44,8 +44,9 @@ The original Godot 4 project remains at the repository root. This folder is a se
 ```
 Assets/
   Scenes/Main.unity          # Entry scene (GameBootstrap)
+  Shaders/                   # Ports of the Godot shaders (fish swim, background fade, water, lava)
   Scripts/
-    Core/                    # GameState, bootstrap, camera fog
+    Core/                    # GameState, bootstrap, camera fog, Godot asset loader, audio
     Player/                  # Submarine controller
     Fish/                    # Fish behaviour + spawn config
     Inventory/               # Weight-limited cargo + smart replace
@@ -57,7 +58,13 @@ Assets/
 
 ## Notes
 
-- Visuals use procedural primitives (colored meshes) so the game is playable without importing Godot FBX assets. You can later swap in models from `../meshes/`.
+- Art and audio are the original Godot files. `Assets/Editor/GodotAssetSync.cs` copies them from the
+  repository root (`../meshes`, `../textures`, `../music`, `../sounds`) into `Assets/Resources/Godot`
+  (git-ignored) and rebuilds the Godot materials there. It runs when the editor opens, before every
+  command-line build, and from **Too Fishy → Sync Godot Assets**. The Unity project therefore has to
+  stay inside the too-fishy repository.
+- Coordinates: Godot (x, y, z) is Unity (x, y, −z). Scene transforms are copied verbatim from the
+  `.tscn` files through `GodotSpace.Apply`, which also handles the X mirror of Unity's model importer.
 - AK-47 / dual guns and full intro-mission cinematic are stubbed lighter than the Godot version; core dive → catch → sell → upgrade → boss loop is fully playable.
 - Gravity is disabled in Physics settings (underwater 2.5D movement).
 

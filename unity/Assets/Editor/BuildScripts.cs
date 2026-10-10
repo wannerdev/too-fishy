@@ -120,6 +120,10 @@ namespace TooFishy.EditorTools
 
         static void ApplySharedPlayerSettings()
         {
+            // The game uses the original Godot meshes/textures, copied in on demand.
+            GodotAssetSync.EnsureSynced();
+            // Godot renders in linear space; gamma would wash out the textures and fog.
+            PlayerSettings.colorSpace = ColorSpace.Linear;
             PlayerSettings.companyName = "wannerdev";
             PlayerSettings.productName = "Too Fishy";
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;

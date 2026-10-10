@@ -24,3 +24,7 @@
 *.mdb.meta
 sysinfo.txt
 crashlytics-build.properties
+
+# Copied from the Godot project by Assets/Editor/GodotAssetSync.cs
+/Assets/Resources/Godot/
+/Assets/Resources/Godot.meta

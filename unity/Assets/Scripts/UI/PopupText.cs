@@ -8,7 +8,9 @@ namespace TooFishy
         float _life = 1.2f;
         Vector3 _vel;
 
-        public static void Show(string text, Vector3 worldPos)
+        public static void Show(string text, Vector3 worldPos) => Show(text, worldPos, Color.white);
+
+        public static void Show(string text, Vector3 worldPos, Color color)
         {
             var go = new GameObject("Popup");
             go.transform.position = worldPos;
@@ -25,7 +27,7 @@ namespace TooFishy
             tm.characterSize = 0.08f;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
-            tm.color = Color.white;
+            tm.color = color;
             var p = go.AddComponent<PopupText>();
             p._tm = tm;
             p._vel = Vector3.up * 1.5f;

@@ -2,6 +2,10 @@ using UnityEngine;
 
 namespace TooFishy
 {
+    /// <summary>
+    /// Port of scripts/items/harpoon.gd + scenes/harpoon.tscn: flies along its local +X at 10 u/s,
+    /// despawns after 3 s or 10 units away from the submarine's current position.
+    /// </summary>
     public class Harpoon : MonoBehaviour
     {
         public float Speed = 10f;
@@ -9,34 +13,33 @@ namespace TooFishy
         public float MaxDistance = 10f;
 
         PlayerController _owner;
-        Vector3 _dir;
-        Vector3 _start;
         float _age;
         bool _piercing;
 
-        public static Harpoon Spawn(Vector3 pos, Vector3 dir, PlayerController owner)
+        public static Harpoon Spawn(Vector3 pos, float angleDeg, PlayerController owner)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = "Harpoon";
+            var go = new GameObject("Harpoon");
             go.transform.position = pos;
-            go.transform.localScale = new Vector3(0.08f, 0.35f, 0.08f);
-            go.transform.rotation = Quaternion.LookRotation(Vector3.forward, dir);
+            go.transform.rotation = GodotSpace.RotZ(angleDeg);
 
-            Object.Destroy(go.GetComponent<Collider>());
-            var col = go.AddComponent<SphereCollider>();
+            GodotAssets.SpawnModel(go.transform, "Lanceharpoon", "meshes/Lanceharpoon.fbx", "Lanceharpoon",
+                -2.18557e-08f, 0.5f, 0f, -0.5f, -2.18557e-08f, 0f, 0f, 0f, 0.5f, 0f, 0f, 0f);
+
+            // Area3D > CollisionShape3D: cylinder (height 2.2, radius 0.5) scaled 0.5 at z -0.33
+            var area = new GameObject("Area3D");
+            area.transform.SetParent(go.transform, false);
+            area.transform.localPosition = GodotSpace.Pos(0f, 0f, -0.33f);
+            var col = area.AddComponent<CapsuleCollider>();
             col.isTrigger = true;
-            col.radius = 0.6f;
-
+            col.direction = 1;
+            col.radius = 0.25f;
+            col.height = 1.1f;
             var rb = go.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
 
-            go.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(new Color(0.75f, 0.55f, 0.25f), metallic: 0.6f);
-
             var h = go.AddComponent<Harpoon>();
             h._owner = owner;
-            h._dir = dir.normalized;
-            h._start = owner.transform.position;
             h._piercing = GameState.Instance.GetUpgradeLevel(Upgrade.Harpoon) >= 1;
             return h;
         }
@@ -44,34 +47,28 @@ namespace TooFishy
         void Update()
         {
             float dt = Time.deltaTime;
-            transform.position += _dir * Speed * dt;
+            transform.position += transform.right * Speed * dt;
             _age += dt;
 
-            if (_age >= Lifetime || Vector3.Distance(transform.position, _start) > MaxDistance)
-            {
+            if (_age >= Lifetime ||
+                (_owner != null && Vector3.Distance(transform.position, _owner.transform.position) > MaxDistance))
                 Destroy(gameObject);
-                return;
-            }
         }
 
         void OnTriggerEnter(Collider other)
         {
-            if (other.CompareTag("Fish") || other.GetComponent<FishBehaviour>() != null)
+            var fish = other.GetComponentInParent<FishBehaviour>();
+            if (fish != null)
             {
-                var fish = other.GetComponent<FishBehaviour>();
-                if (fish != null && _owner != null)
-                    _owner.CatchFish(fish);
-                if (!_piercing)
-                {
-                    Destroy(gameObject);
-                    return;
-                }
+                if (_owner != null) _owner.CatchFish(fish);
+                if (!_piercing) Destroy(gameObject);
+                return;
             }
 
-            if (other.CompareTag("Boss") || other.GetComponent<BossController>() != null)
+            var boss = other.GetComponentInParent<BossController>();
+            if (boss != null)
             {
-                var boss = other.GetComponent<BossController>();
-                boss?.TakeDamage(10);
+                boss.TakeDamage(10);
                 Destroy(gameObject);
             }
         }

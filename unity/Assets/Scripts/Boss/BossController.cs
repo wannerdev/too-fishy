@@ -19,39 +19,30 @@ namespace TooFishy
         {
             if (HasSpawned || IsDefeated) return;
             var gs = GameState.Instance;
-            if (gs == null || gs.MaxDepthReached <= 500) return;
+            if (gs == null || gs.MaxDepthReached <= 500) return; // boss.gd boss_spawn_height
 
             HasSpawned = true;
             gs.BossEncountered = true;
 
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "Boss_Blobfish";
+            // scenes/boss.tscn, placed like level.gd spawnBoss(): x -5, 25 m below the max depth
+            var go = new GameObject("Boss_Blobfish");
             go.tag = "Boss";
             go.transform.SetParent(worldRoot, false);
-            go.transform.position = new Vector3(-4f, -520f, -0.5f);
-            go.transform.localScale = new Vector3(6f, 5f, 4f);
+            go.transform.position = GodotSpace.Pos(-5f, -gs.MaxDepthReached - 25f, -0.33f);
 
-            Object.Destroy(go.GetComponent<Collider>());
+            var pivot = new GameObject("Pivot").transform;
+            pivot.SetParent(go.transform, false);
+            GodotAssets.SpawnModel(pivot, "MeshInstance3D", "meshes/SM_Blobert.obj", "fishes",
+                1.33748e-15f, -3.0598e-08f, -0.7f, -0.7f, -3.0598e-08f, 4.44692e-21f, -3.0598e-08f, 0.7f, -3.0598e-08f,
+                0f, 0.909437f, 0f);
+
             var col = go.AddComponent<SphereCollider>();
-            col.radius = 0.6f;
+            col.radius = 1.50957f;
+            col.center = GodotSpace.Pos(0.00968528f, 1.97357f, -0.00248528f);
 
             var rb = go.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
-
-            go.GetComponent<Renderer>().sharedMaterial =
-                Materials.Emissive(new Color(1f, 0.55f, 0.6f), new Color(0.5f, 0.15f, 0.2f));
-
-            // Eyes
-            for (int i = 0; i < 2; i++)
-            {
-                var eye = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                eye.transform.SetParent(go.transform, false);
-                eye.transform.localPosition = new Vector3(i == 0 ? -0.25f : 0.25f, 0.2f, -0.45f);
-                eye.transform.localScale = new Vector3(0.15f, 0.2f, 0.1f);
-                Object.Destroy(eye.GetComponent<Collider>());
-                eye.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(Color.black);
-            }
 
             var boss = go.AddComponent<BossController>();
             boss.Health = boss.MaxHealth;
@@ -71,9 +62,9 @@ namespace TooFishy
 
             if (_player != null)
             {
-                // Boss collider radius (0.6 * scale 6 = 3.6) plus the submarine radius (0.5)
-                float dist = Vector3.Distance(transform.position, _player.position);
-                if (dist < 4.3f && _playerController != null)
+                // Boss sphere (radius 1.51, centred 1.97 above the origin) plus the submarine radius (0.5)
+                float dist = Vector3.Distance(transform.position + Vector3.up * 1.97357f, _player.position);
+                if (dist < 2.01f && _playerController != null)
                     _playerController.Hurt(2);
             }
         }
@@ -82,7 +73,7 @@ namespace TooFishy
         {
             Health = Mathf.Max(0, Health - amount);
             PopupText.Show($"-{amount}", transform.position + Vector3.up * 3f);
-            transform.localScale *= 0.98f;
+            SoundPlayer.Play("urrgh");
 
             if (GameState.Instance.IsIntro() && Health <= MaxHealth / 2)
             {

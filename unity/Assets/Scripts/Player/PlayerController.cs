@@ -21,7 +21,11 @@ namespace TooFishy
         float _accelX = 2.5f, _decelX = 3.8f, _maxSpeedX = 5f;
         float _accelY = 2.2f, _decelY = 3.0f, _maxSpeedY = 4f;
 
+        /// <summary>Godot keeps the player at z = 0.33 (game_state.gd), i.e. Unity z = -0.33.</summary>
+        public const float PlayerZ = -0.33f;
+
         float _harpoonCd, _buoyCd, _droneCd;
+        float _rockZ;
         bool _facingRight = true;
         bool _canBeHurt = true;
         float _trauma;
@@ -89,8 +93,8 @@ namespace TooFishy
 
         void HandleMovement(float dt)
         {
-            // The camera sits at +Z looking toward -Z, so screen-right is world -X.
-            float inputX = -GameInput.Horizontal;
+            // Camera at -Z looking +Z (see GodotSpace): screen-right is world +X, as in Godot.
+            float inputX = GameInput.Horizontal;
             float inputY = GameInput.Vertical;
             bool atSurface = transform.position.y >= -0.2f;
             if (inputY > 0f && atSurface) inputY = 0f;
@@ -121,36 +125,50 @@ namespace TooFishy
             if (vy > 0f) vy *= 1.2f;
             if (transform.position.y >= -0.2f && inputY < 0f) vy *= 2f;
 
-            _externalForces = Vector3.Lerp(_externalForces, Vector3.zero, 5f * dt);
             var move = new Vector3(vx, vy, 0f) + _externalForces;
+            _externalForces = Vector3.Lerp(_externalForces, Vector3.zero, 5f * dt);
+            // player.gd calls move_and_slide() twice per physics tick (movement() and
+            // collision()) with the same velocity, so the submarine covers twice the distance.
+            _cc.Move(move * dt);
             _cc.Move(move * dt);
 
             // Lock Z
             var p = transform.position;
-            p.z = 0.33f;
+            p.z = PlayerZ;
             if (p.y > 0.5f) p.y = 0.5f;
             transform.position = p;
 
-            // Subtle rocking
-            if (_pivot != null)
-            {
-                float rock = Mathf.Sin(Time.time * 2f) * 8f * Mathf.Clamp01(Mathf.Abs(_velX) / _maxSpeedX);
-                var e = _pivot.localEulerAngles;
-                e.z = rock;
-                _pivot.localEulerAngles = e;
-            }
+            RockingMotion(dt, move);
         }
+
+        // player.gd rockingMotion(): slow sway when idle, tilt against horizontal motion, ±8°.
+        void RockingMotion(float dt, Vector3 velocity)
+        {
+            if (_pivot == null) return;
+            if (Mathf.Abs(velocity.x) < 0.1f && Mathf.Abs(velocity.y) < 0.1f)
+            {
+                float rocking = Mathf.Sin(Time.time * 0.5f) * 1.3f * Mathf.Deg2Rad;
+                _rockZ = Mathf.Lerp(_rockZ, rocking, dt * 0.8f);
+            }
+            else
+            {
+                float tilt = -velocity.x * 0.01f;
+                _rockZ = Mathf.Lerp(_rockZ, tilt, dt * 2f);
+            }
+            _rockZ = Mathf.Clamp(_rockZ, -8f * Mathf.Deg2Rad, 8f * Mathf.Deg2Rad);
+            ApplyPivotRotation();
+        }
+
+        // Godot Pivot rotation (YXZ Euler): facing yaw, then the rocking roll.
+        void ApplyPivotRotation() =>
+            _pivot.localRotation = Quaternion.Euler(0f, _facingRight ? 0f : 180f, 0f) * GodotSpace.RotZ(_rockZ * Mathf.Rad2Deg);
 
         void SetFacing(bool right)
         {
             if (_facingRight == right) return;
             _facingRight = right;
-            if (_pivot != null)
-            {
-                var s = _pivot.localScale;
-                s.x = Mathf.Abs(s.x) * (right ? 1f : -1f);
-                _pivot.localScale = s;
-            }
+            // player.gd turns the Pivot 180° around Y instead of mirroring it.
+            if (_pivot != null) ApplyPivotRotation();
         }
 
         void HandleActions()
@@ -162,14 +180,19 @@ namespace TooFishy
 
             if (GameInput.ConsumeBuoy() && gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0 && _buoyCd <= 0f)
             {
-                Teleport(new Vector3(transform.position.x, -1f, 0.33f));
+                Teleport(new Vector3(transform.position.x, -1f, PlayerZ));
+                SoundPlayer.Play("bup");
                 _buoyCd = BuoyCooldown;
             }
 
             if (GameInput.ConsumeDrone() && gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0 && _droneCd <= 0f)
             {
                 int sold = gs.Inventory.SellItems();
-                if (sold > 0) PopupText.Show($"+${sold} (drone)", transform.position + Vector3.up);
+                if (sold > 0)
+                {
+                    SoundPlayer.Play("coins");
+                    PopupText.Show($"+${sold} (drone)", transform.position + Vector3.up);
+                }
                 _droneCd = DroneCooldown;
             }
 
@@ -180,22 +203,27 @@ namespace TooFishy
         void ShootHarpoon(Vector2 aimScreenPos)
         {
             _harpoonCd = HarpoonCooldown;
-            Vector3 dir;
             var gs = GameState.Instance;
+            Vector3 launch = _launchPoint.position;
+            float angleDeg;
+
             if (gs.GetUpgradeLevel(Upgrade.HarpoonRotation) > 0 && _cam != null)
             {
-                Vector3 aim = aimScreenPos;
-                aim.z = Mathf.Abs(_cam.transform.position.z - transform.position.z);
-                var world = _cam.ScreenToWorldPoint(aim);
-                dir = (world - _launchPoint.position);
-                dir.z = 0f;
-                if (dir.sqrMagnitude < 0.01f) dir = _facingRight ? Vector3.right : Vector3.left;
-                dir.Normalize();
+                // player.gd: screen-space angle from the launch point to the cursor (screen Y
+                // points down in Godot, up in Unity), applied as the harpoon's Z rotation.
+                Vector2 launchScreen = _cam.WorldToScreenPoint(launch);
+                Vector2 d = aimScreenPos - launchScreen;
+                angleDeg = d.sqrMagnitude > 0.1f ? Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg : 0f;
             }
             else
-                dir = _facingRight ? Vector3.right : Vector3.left;
+            {
+                // Default: one unit beside the hull on the facing side, flying straight ahead.
+                launch = transform.position + (_facingRight ? Vector3.right : Vector3.left);
+                angleDeg = _facingRight ? 0f : 180f;
+            }
 
-            Harpoon.Spawn(_launchPoint.position, dir, this);
+            Harpoon.Spawn(launch, angleDeg, this);
+            SoundPlayer.Play("harp");
         }
 
         void SwingPickaxe()
@@ -251,6 +279,7 @@ namespace TooFishy
             if (!_canBeHurt) return;
             AddTrauma(1f);
             GameState.Instance.Damage(damage);
+            SoundPlayer.Play("ughhh");
             _canBeHurt = false;
             Invoke(nameof(ResetHurt), 1f);
         }
@@ -266,7 +295,7 @@ namespace TooFishy
             float shake = _trauma * _trauma * 0.1f;
             var offset = Random.insideUnitSphere * shake;
             offset.z = 0f;
-            _cam.transform.localPosition = new Vector3(0f, 1.19f, 5.29f) + offset;
+            _cam.transform.localPosition = GodotSpace.Pos(0f, 1.18841f, 5.28607f) + offset;
         }
 
         public void Teleport(Vector3 pos)

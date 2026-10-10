@@ -43,6 +43,8 @@ namespace TooFishy
             if (camFx != null)
                 camFx.gameObject.AddComponent<UnderwaterCamera>();
 
+            new GameObject("Audiomanager").AddComponent<MusicPlayer>();
+
             // Boss watcher
             var watcher = new GameObject("BossWatcher").AddComponent<BossWatcher>();
             watcher.WorldRoot = world;
@@ -56,94 +58,105 @@ namespace TooFishy
 
         void BuildLighting()
         {
-            var lightGo = new GameObject("Sun");
+            // DirectionalLight3D of scenes/main_scene.tscn
+            var lightGo = new GameObject("DirectionalLight3D");
+            GodotSpace.Apply(lightGo.transform,
+                0.94702f, 0.320556f, -0.0199305f, -0.0267635f, 0.140602f, 0.989704f, 0.320058f, -0.936736f, 0.141732f,
+                -6.47082f, 1.04463f, 15.1856f);
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.color = new Color(0.7f, 0.85f, 1f);
-            light.intensity = 0.85f;
-            // The camera looks toward -Z, so the sun must shine toward -Z to light what it sees.
-            lightGo.transform.rotation = Quaternion.Euler(40f, 150f, 0f);
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.15f, 0.25f, 0.35f);
+            light.color = Color.white;
+            light.intensity = 1f;
+            light.shadows = LightShadows.None;
+            UnderwaterCamera.Sun = light;
+
+            // Environment of scenes/player.tscn: panorama sky as background and ambient source.
+            var sky = GodotAssets.Material("sky");
+            if (sky != null)
+            {
+                RenderSettings.skybox = sky;
+                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Skybox;
+                DynamicGI.UpdateEnvironment();
+            }
+            else
+            {
+                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+                RenderSettings.ambientLight = new Color(0.105882f, 0.203922f, 0.647059f);
+            }
         }
 
         PlayerController BuildPlayer(Transform world)
         {
             var go = new GameObject("Player");
             go.transform.SetParent(world, false);
-            go.transform.position = new Vector3(-8f, 0f, 0.33f);
+            go.transform.position = GodotSpace.Pos(-8f, 0f, 0.33f);
             go.tag = "Player";
 
+            // Godot uses a horizontal capsule (height 2.8, radius 0.5); a CharacterController is
+            // always upright, so it approximates the hull with a sphere-ish capsule.
             var cc = go.AddComponent<CharacterController>();
             cc.height = 1.2f;
             cc.radius = 0.5f;
-            cc.center = Vector3.zero;
+            cc.center = GodotSpace.Pos(-0.0102715f, 0.129017f, 0.00199914f);
 
+            // scenes/player.tscn: Pivot (scale 20) > SmFishSubmarine (scale 0.01) = 0.2 overall
             var pivot = new GameObject("Pivot").transform;
             pivot.SetParent(go.transform, false);
-
-            // Submarine body (capsule)
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Hull";
-            body.transform.SetParent(pivot, false);
-            body.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            body.transform.localScale = new Vector3(0.7f, 1.1f, 0.7f);
-            Object.Destroy(body.GetComponent<Collider>());
-            var bm = Materials.Opaque(new Color(0.85f, 0.55f, 0.15f), metallic: 0.4f);
-            body.GetComponent<Renderer>().sharedMaterial = bm;
-
-            // Conning tower
-            var tower = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            tower.name = "Tower";
-            tower.transform.SetParent(pivot, false);
-            tower.transform.localPosition = new Vector3(0f, 0.45f, 0f);
-            tower.transform.localScale = new Vector3(0.4f, 0.35f, 0.4f);
-            Object.Destroy(tower.GetComponent<Collider>());
-            tower.GetComponent<Renderer>().sharedMaterial = bm;
-
-            // Propeller
-            var prop = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            prop.name = "Prop";
-            prop.transform.SetParent(pivot, false);
-            prop.transform.localPosition = new Vector3(-1.0f, 0f, 0f);
-            prop.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            prop.transform.localScale = new Vector3(0.35f, 0.08f, 0.35f);
-            Object.Destroy(prop.GetComponent<Collider>());
-            prop.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(new Color(0.3f, 0.3f, 0.35f));
+            GodotSpace.Apply(pivot, 20f, 0.00383925f, 0f, -0.00383925f, 20f, 0f, 0f, 0f, 20f, 0f, 0.155944f, 0f);
 
             var launch = new GameObject("HarpoonLaunchPoint").transform;
             launch.SetParent(pivot, false);
-            launch.localPosition = new Vector3(1.1f, 0f, 0f);
+            GodotSpace.Apply(launch, 0.01f, 0f, 0f, 0f, 0.01f, 0f, 0f, 0f, 0.01f, 0.00037846f, 0.000150716f, -3.20524e-05f);
 
-            // Camera
-            var camGo = new GameObject("Camera");
+            var sub = GodotAssets.SpawnModel(pivot, "SmFishSubmarine", "meshes/SM_FishSubmarine_FINAL.obj", "submarine",
+                0.01f, 0f, 0f, 0f, 0.01f, 0f, 0f, 0f, 0.01f, 0.00037846f, 0.000150717f, -3.20524e-05f);
+
+            // Hand > pickaxe > Pivot > MeshInstance3D (scenes/pickaxe.tscn), shown with the upgrade
+            var hand = new GameObject("Hand").transform;
+            hand.SetParent(sub, false);
+            GodotSpace.Apply(hand, 4.96379f, 0.600684f, 0f, -0.600684f, 4.96379f, 0f, 0f, 0f, 5f, 3.76286f, -2.57438f, 1.55206f);
+            var pickaxe = new GameObject("pickaxe").transform;
+            pickaxe.SetParent(hand, false);
+            GodotSpace.Apply(pickaxe, 0.932009f, 0.362438f, 0f, -0.362438f, 0.932009f, 0f, 0f, 0f, 1f, -0.00366241f, 0.0302158f, 0f);
+            var pickPivot = new GameObject("Pivot").transform;
+            pickPivot.SetParent(pickaxe, false);
+            pickPivot.localPosition = GodotSpace.Pos(0.319393f, 0f, 0f);
+            GodotAssets.SpawnModel(pickPivot, "PickaxeMesh", "meshes/SM_Pickaxe.obj", "assets",
+                -1.70474e-08f, 0.39f, 0f, 1.70474e-08f, 7.45167e-16f, -0.39f, -0.39f, -1.70474e-08f, -1.70474e-08f, 0f, 0f, 0f);
+            pickaxe.gameObject.SetActive(false);
+
+            // UnlockableLamp (SpotLight3D, hidden until the lamp upgrade)
+            var lamp = new GameObject("UnlockableLamp");
+            lamp.transform.SetParent(sub, false);
+            GodotSpace.Apply(lamp.transform,
+                -4.37114e-08f, 0.207912f, -0.978148f, 0f, 0.978148f, 0.207912f, 1f, 9.08811e-09f, -4.27562e-08f,
+                5.34924f, 1.78326f, 0.00318527f);
+            var spot = lamp.AddComponent<Light>();
+            spot.type = LightType.Spot;
+            spot.range = 37.798f;
+            spot.spotAngle = 28.444f * 2f; // Godot spot_angle is the half angle
+            spot.intensity = 4f;
+            spot.color = Color.white;
+            spot.enabled = false;
+
+            // Camera3D: child of the player at (0, 1.18841, 5.28607), no rotation, fov 75
+            var camGo = new GameObject("Camera3D");
             camGo.transform.SetParent(go.transform, false);
-            camGo.transform.localPosition = new Vector3(0f, 1.19f, 5.29f);
-            camGo.transform.localRotation = Quaternion.Euler(8f, 180f, 0f);
+            camGo.transform.localPosition = GodotSpace.Pos(0f, 1.18841f, 5.28607f);
+            camGo.transform.localRotation = Quaternion.identity;
             var cam = camGo.AddComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.clearFlags = RenderSettings.skybox != null ? CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.35f, 0.65f, 0.9f);
             cam.fieldOfView = 75f;
-            cam.nearClipPlane = 0.1f;
-            cam.farClipPlane = 200f;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 500f;
             camGo.AddComponent<AudioListener>();
             cam.tag = "MainCamera";
 
-            // Lamp (optional upgrade visual)
-            var lamp = new GameObject("Lamp");
-            lamp.transform.SetParent(pivot, false);
-            lamp.transform.localPosition = new Vector3(0.9f, 0.1f, 0f);
-            // Shine along the submarine's nose (+X in pivot space; the pivot flips with facing)
-            lamp.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
-            var spot = lamp.AddComponent<Light>();
-            spot.type = LightType.Spot;
-            spot.range = 25f;
-            spot.spotAngle = 55f;
-            spot.intensity = 0f;
-            spot.color = new Color(1f, 0.95f, 0.8f);
-
             var player = go.AddComponent<PlayerController>();
-            go.AddComponent<PlayerLamp>();
+            var upgrades = go.AddComponent<PlayerUpgradeVisuals>();
+            upgrades.Lamp = spot;
+            upgrades.Pickaxe = pickaxe.gameObject;
             return player;
         }
 
@@ -167,14 +180,18 @@ namespace TooFishy
         }
     }
 
-    public class PlayerLamp : MonoBehaviour
+    /// <summary>Shows upgrade-gated parts of the submarine (player.gd process_dock).</summary>
+    public class PlayerUpgradeVisuals : MonoBehaviour
     {
-        Light _spot;
-        void Start() => _spot = GetComponentInChildren<Light>();
+        public Light Lamp;
+        public GameObject Pickaxe;
+
         void Update()
         {
-            if (_spot == null || GameState.Instance == null) return;
-            _spot.intensity = GameState.Instance.GetUpgradeLevel(Upgrade.LampUnlocked) > 0 ? 2.5f : 0f;
+            var gs = GameState.Instance;
+            if (gs == null) return;
+            if (Lamp != null) Lamp.enabled = gs.GetUpgradeLevel(Upgrade.LampUnlocked) > 0;
+            if (Pickaxe != null) Pickaxe.SetActive(gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0);
         }
     }
 

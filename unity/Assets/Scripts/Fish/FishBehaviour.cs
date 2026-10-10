@@ -2,93 +2,195 @@ using UnityEngine;
 
 namespace TooFishy
 {
+    /// <summary>
+    /// Port of scripts/fish.gd with the fish scenes of scenes/mobs (model, material, collision).
+    /// A fish faces right (+X) with no yaw and left with a 180° yaw; it swims along its nose,
+    /// tilted by an angle around Z (positive = up), and turns around when it hits the play area
+    /// border.
+    /// </summary>
     public class FishBehaviour : MonoBehaviour
     {
         public FishType Type { get; private set; }
         public float Weight { get; private set; }
         public int Price { get; private set; }
         public bool IsShiny { get; private set; }
+        /// <summary>Section that spawned this fish (fish.gd <c>home</c>).</summary>
+        public int Home { get; private set; }
+
+        const float MinAngle = -30f, MaxAngle = 30f;
+        const float RotationCooldown = 0.1f;
+        /// <summary>Godot fish live at z = -0.3.</summary>
+        public const float FishZ = 0.3f;
+        // Inner faces of the LeftBarrier / RightBarrier walls of scenes/section.tscn
+        const float AreaMinX = -29.43f, AreaMaxX = -0.53f;
+
+        // fish.gd shader animation rate
+        const float BaseAnimRate = 0.5f, SpeedToAnimRate = 1.25f, MinAnimRate = 0.2f, MaxAnimRate = 1.6f;
 
         float _speed;
-        float _minAngle = -30f, _maxAngle = 30f;
-        float _rotationCd;
+        bool _facingLeft;
+        float _angle;
+        float _rotationCdLeft;
+        float _animTime;
         Vector3 _velocity;
+        Renderer[] _animated;
+        MaterialPropertyBlock _mpb;
         int _id;
         static int _nextId = 1;
+        static readonly int AnimTimeId = Shader.PropertyToID("_AnimTime");
 
-        public static FishBehaviour Spawn(Vector3 pos, FishType type, Stage stage, Transform parent)
+        public static FishBehaviour Spawn(Vector3 pos, FishType type, Stage stage, Transform parent, int home = 0)
         {
             var stats = FishConfig.Stats[type];
             var section = FishConfig.Sections[stage];
 
-            if (stats.RequiresBossDefeat && !GameState.Instance.BossEncountered && !BossController.IsDefeated)
-                return null;
-            // Gate on the deepest point the player has reached, not the current depth: sections
-            // (and their fish) are created while the player is still above them.
-            if (stats.MinRequiredDepth > 0 && GameState.Instance.MaxDepthReached < stats.MinRequiredDepth)
-                return null;
-
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = $"Fish_{type}";
+            var go = new GameObject($"Fish_{type}");
             go.tag = "Fish";
             go.transform.SetParent(parent, true);
-            go.transform.position = pos;
-            go.transform.localScale = stats.Scale;
-
-            var col = go.GetComponent<SphereCollider>();
-            col.isTrigger = false;
+            go.transform.position = new Vector3(pos.x, pos.y, FishZ);
 
             var rb = go.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
 
+            var fish = go.AddComponent<FishBehaviour>();
+            fish.BuildVisual(type);
+
             bool shiny = Random.value < section.ShinyRate;
-            float weight = Mathf.Clamp(
+            // fish.gd: `weight` is an int export, so the clamped random weight is truncated.
+            int weight = (int)Mathf.Clamp(
                 Random.Range(stats.WeightMin, stats.WeightMax) * section.WeightMultiplier,
                 stats.WeightMin, stats.WeightMax);
             int price = Mathf.RoundToInt(weight * stats.PriceWeightMultiplier);
             if (shiny) price *= 3;
 
-            float t = (weight - stats.WeightMin) / Mathf.Max(0.01f, (stats.WeightMax - stats.WeightMin) / 2f);
-            float scaleMul = 1f + t * 0.3f;
-            var s = stats.Scale;
-            go.transform.localScale = new Vector3(s.x * scaleMul, s.y * scaleMul, s.z);
+            // fish.gd get_scale_for_weight()
+            float normalWeight = (stats.WeightMax - stats.WeightMin) / 2f;
+            float factor = normalWeight > 0f ? (weight - stats.WeightMin) / normalWeight : 0f;
+            float s = 1f + factor * 0.3f;
+            go.transform.localScale = new Vector3(s, s, 1f);
 
-            var mat = shiny
-                ? Materials.Emissive(Color.Lerp(stats.Color, Color.white, 0.55f), stats.Color * 0.8f)
-                : Materials.Opaque(stats.Color);
-            go.GetComponent<Renderer>().sharedMaterial = mat;
-
-            // Simple fin
-            var fin = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            fin.name = "Fin";
-            fin.transform.SetParent(go.transform, false);
-            fin.transform.localPosition = new Vector3(-0.6f, 0f, 0f);
-            fin.transform.localScale = new Vector3(0.4f, 0.5f, 0.15f);
-            Object.Destroy(fin.GetComponent<Collider>());
-            fin.GetComponent<Renderer>().sharedMaterial = mat;
-
-            var fish = go.AddComponent<FishBehaviour>();
             fish.Type = type;
             fish.Weight = weight;
             fish.Price = price;
             fish.IsShiny = shiny;
+            fish.Home = home;
             fish._speed = Random.Range(stats.SpeedMin, stats.SpeedMax);
             fish._id = _nextId++;
-            fish.SetAngle(Random.Range(fish._minAngle, fish._maxAngle));
+            fish._animTime = Random.value * 2f * Mathf.PI;
+            fish.SetAngle(Random.Range(MinAngle, MaxAngle));
+            if (shiny) fish.AddShinyParticles();
             return fish;
+        }
+
+        /// <summary>Model, material and collision shape from the Godot fish scene of each type.</summary>
+        void BuildVisual(FishType type)
+        {
+            var pivot = new GameObject("Pivot").transform;
+            pivot.SetParent(transform, false);
+            Transform model = null;
+
+            switch (type)
+            {
+                case FishType.Flamy: // scenes/mobs/BasicFishA.tscn
+                case FishType.Greeny: // scenes/mobs/BasicFishB.tscn
+                    pivot.localScale = Vector3.one * 0.15f;
+                    model = GodotAssets.SpawnModel(pivot, "SmBasicFish",
+                        type == FishType.Flamy ? "meshes/SM_Fish_A.obj" : "meshes/SM_Fish_B.obj", "fish_a_animated",
+                        -1f, 0f, -8.74228e-08f, 0f, 1f, 0f, 8.74228e-08f, 0f, -1f, 0f, 0f, 0f);
+                    _animated = model.GetComponentsInChildren<Renderer>();
+                    AddCapsule(0.211779f, 0.978053f, type == FishType.Flamy
+                        ? GodotSpace.Pos(-0.00279042f, -0.0233175f, 0f)
+                        : GodotSpace.Pos(-0.00212356f, 0.0263436f, 0f));
+                    break;
+
+                case FishType.Angler: // scenes/mobs/AnglerFish.tscn
+                    pivot.localScale = Vector3.one * 0.3f;
+                    model = GodotAssets.SpawnModel(pivot, "SmAnglerFish", "meshes/SM_AnglerFish.obj", "fishes",
+                        -0.7f, 0f, -1.05697e-07f, 0f, 0.7f, 0f, 1.05697e-07f, 0f, -0.7f, 0f, 0.559967f, 0f);
+                    var lure = new GameObject("OmniLight3D");
+                    lure.transform.SetParent(model, false);
+                    lure.transform.localPosition = GodotSpace.Pos(-2.95979f, 1.79049f, 0f);
+                    var light = lure.AddComponent<Light>();
+                    light.type = LightType.Point;
+                    light.color = new Color(1f, 1f, 0.639216f);
+                    light.intensity = 2.5f;
+                    light.range = 2.2f;
+                    AddCapsule(0.395173f, 1.53551f, GodotSpace.Pos(-0.0879799f, 0.118642f, 0f));
+                    break;
+
+                case FishType.Spikey: // scenes/mobs/spikey_fish.tscn
+                    pivot.localPosition = GodotSpace.Pos(0.118526f, 0f, 0f);
+                    GodotAssets.SpawnModel(pivot, "Spiky_remesh", "meshes/Spiky_remesh.fbx", "Spiky_remesh",
+                        -0.00335101f, 0f, 0.999994f, 0f, 1f, 0f, -0.999994f, 0f, -0.00335101f, -0.118526f, 0f, 0f);
+                    AddCapsule(0.5f, 2f, GodotSpace.Pos(0.809324f, 0f, 0f));
+                    break;
+
+                case FishType.BossMini: // scenes/mobs/boss_mini_fish.tscn
+                    pivot.localScale = Vector3.one * 0.085f;
+                    GodotAssets.SpawnModel(pivot, "MeshInstance3D", "meshes/SM_Blobert.obj", "boss_mini",
+                        -0.7f, 0.000280873f, -7.17421e-06f, 0.000280964f, 0.699772f, -0.017872f, 7.81212e-10f, -0.017872f, -0.699772f, 0f, 0f, 0f);
+                    var sphere = gameObject.AddComponent<SphereCollider>();
+                    sphere.radius = 0.13f;
+                    break;
+
+                default: // FishType.Smally: scenes/mobs/dummy_fish.tscn, built from primitives in Godot too
+                    pivot.localScale = Vector3.one * 0.2f;
+                    DummyFishParts.Build(pivot);
+                    AddCapsule(0.105422f, 0.395723f, GodotSpace.Pos(-0.0372254f, 0f, 0f));
+                    break;
+            }
+        }
+
+        // Godot fish capsules are rotated 90° around Z, i.e. they lie along X.
+        void AddCapsule(float radius, float height, Vector3 center)
+        {
+            var c = gameObject.AddComponent<CapsuleCollider>();
+            c.direction = 0;
+            c.radius = radius;
+            c.height = height;
+            c.center = center;
+        }
+
+        void AddShinyParticles()
+        {
+            // materials/mobs/ShinyParticles.tres with the shiny colour set in fish.gd
+            var go = new GameObject("ShinyParticles");
+            go.transform.SetParent(transform, false);
+            var ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main;
+            main.duration = 1.5f;
+            main.loop = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.75f, 1.5f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0f, 1f);
+            main.startSize = 0.02f;
+            main.startColor = new Color(1f, 0.9f, 0.2f, 0.55f);
+            main.maxParticles = 200;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            var emission = ps.emission;
+            emission.rateOverTime = 200f / 1.5f;
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 1f;
+            shape.scale = new Vector3(0.5f, 0.3f, 0.3f);
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(
+                new Keyframe(0f, 0f), new Keyframe(0.25f, 1f), new Keyframe(0.75f, 0.67f), new Keyframe(1f, 0f)));
+            var r = go.GetComponent<ParticleSystemRenderer>();
+            r.renderMode = ParticleSystemRenderMode.Mesh;
+            r.mesh = ProceduralMeshes.Prism;
+            r.sharedMaterial = Materials.Emissive(new Color(0.864675f, 0.601447f, 0f), new Color(0.517711f, 0.434439f, 0f) * 10f);
+            ps.Play();
         }
 
         void Update()
         {
             float dt = Time.deltaTime;
-            if (_rotationCd > 0f) _rotationCd -= dt;
+            if (_rotationCdLeft > 0f) _rotationCdLeft -= dt;
 
-            transform.position += _velocity * dt;
             var p = transform.position;
-            p.z = -0.3f;
-            transform.position = p;
-
             if (p.y >= -0.5f)
             {
                 Destroy(gameObject);
@@ -96,67 +198,108 @@ namespace TooFishy
             }
 
             float lower = GameState.Instance != null ? GameState.Instance.FishesLowerBorder : -30f;
-            if (p.y >= -0.75f && _velocity.y > 0f)
-                SetAngle(Random.Range(_minAngle, _minAngle / 2f));
-            else if (p.y <= lower && _velocity.y < 0f)
-                SetAngle(Random.Range(_maxAngle / 2f, _maxAngle));
+            if (p.y >= -0.75f)
+            {
+                if (IsLookingUp) SetAngle(Random.Range(MinAngle, MinAngle / 2f));
+            }
+            else if (p.y <= lower)
+            {
+                if (!IsLookingUp) SetAngle(Random.Range(MaxAngle / 2f, MaxAngle));
+            }
             else if (Random.value < 0.004f)
-                SetAngle(Random.Range(_minAngle, _maxAngle));
+                SetAngle(Random.Range(MinAngle, MaxAngle));
 
-            // Wall bounce (simple bounds)
-            if ((p.x < -14f && _velocity.x < 0f) || (p.x > 6f && _velocity.x > 0f))
+            p += _velocity * dt;
+            p.z = FishZ;
+
+            // move_and_slide() hitting a wall: turn around with a new random angle.
+            bool hitWall = (p.x < AreaMinX && _velocity.x < 0f) || (p.x > AreaMaxX && _velocity.x > 0f);
+            if (hitWall)
             {
-                if (_rotationCd <= 0f)
+                p.x = Mathf.Clamp(p.x, AreaMinX, AreaMaxX);
+                if (_rotationCdLeft <= 0f)
                 {
-                    _rotationCd = 0.1f;
-                    Flip();
-                    SetAngle(Random.Range(_minAngle, _maxAngle));
+                    _rotationCdLeft = RotationCooldown;
+                    _facingLeft = !_facingLeft;
+                    SetAngle(Random.Range(MinAngle, MaxAngle));
                 }
             }
+            transform.position = p;
 
-            // Scatter from player; despawn once far away so the fish count stays bounded
+            // Godot keeps every fish until it is caught or surfaces; despawn far-away ones so
+            // the streamed level does not accumulate them.
             var player = GameState.Instance?.PlayerTransform;
-            if (player != null)
+            if (player != null && Mathf.Abs(p.y - player.position.y) > 130f)
             {
-                if (Mathf.Abs(p.y - player.position.y) > 130f)
-                {
-                    Destroy(gameObject);
-                    return;
-                }
-                float dist = Vector3.Distance(transform.position, player.position);
-                if (dist < 3f && Random.value < 0.02f)
-                    Scatter(player);
+                Destroy(gameObject);
+                return;
             }
+
+            UpdateShaderAnimation(dt);
         }
 
+        bool IsLookingUp => _angle > 0f;
+
+        /// <summary>fish.gd set_z_rotation_and_velocity().</summary>
         void SetAngle(float deg)
         {
+            _angle = deg;
             float rad = deg * Mathf.Deg2Rad;
-            float facing = transform.localScale.x >= 0f ? 1f : -1f;
-            // Fish local +X is forward after scale flip; velocity along swim direction
-            Vector3 dir = new Vector3(Mathf.Cos(rad) * facing, Mathf.Sin(rad), 0f).normalized;
-            _velocity = dir * _speed;
-            transform.rotation = Quaternion.Euler(0f, 0f, deg * facing);
+            _velocity = new Vector3(Mathf.Cos(rad) * (_facingLeft ? -1f : 1f), Mathf.Sin(rad), 0f) * _speed;
+            // Godot Euler YXZ: yaw for the facing, then the tilt around Z.
+            transform.rotation = Quaternion.Euler(0f, _facingLeft ? 180f : 0f, 0f) * GodotSpace.RotZ(deg);
         }
 
-        void Flip()
+        void UpdateShaderAnimation(float dt)
         {
-            var s = transform.localScale;
-            s.x = -s.x;
-            transform.localScale = s;
+            if (_animated == null || _animated.Length == 0) return;
+            float rate = Mathf.Clamp(BaseAnimRate + _velocity.magnitude * SpeedToAnimRate, MinAnimRate, MaxAnimRate);
+            _animTime = (_animTime + dt * rate) % (2f * Mathf.PI);
+            _mpb ??= new MaterialPropertyBlock();
+            _mpb.SetFloat(AnimTimeId, _animTime);
+            foreach (var r in _animated)
+                if (r != null) r.SetPropertyBlock(_mpb);
         }
 
+        /// <summary>fish.gd scatter(): turn away from the body and dart up or down at 35-55°.</summary>
         public void Scatter(Transform from)
         {
-            Vector3 away = (transform.position - from.position).normalized;
-            away.z = 0f;
-            if (away.sqrMagnitude < 0.01f) away = Vector3.right;
-            _velocity = away * (_speed * 2f);
-            if ((away.x > 0f) != (transform.localScale.x > 0f))
-                Flip();
+            var fp = from.position;
+            var p = transform.position;
+            if ((fp.x < p.x && _facingLeft) || (fp.x > p.x && !_facingLeft))
+                _facingLeft = !_facingLeft;
+            SetAngle(fp.y < p.y ? Random.Range(35f, 55f) : Random.Range(-35f, -55f));
         }
 
         public InventoryItem ToInventoryItem() =>
             new InventoryItem(Type, Weight, Price, _id, IsShiny);
+    }
+
+    /// <summary>The primitive parts of scenes/mobs/dummy_fish.tscn (Godot default material).</summary>
+    static class DummyFishParts
+    {
+        public static void Build(Transform pivot)
+        {
+            var mat = Materials.Opaque(new Color(0.8f, 0.8f, 0.8f), glossiness: 0.5f);
+            Part(pivot, "Body", PrimitiveType.Capsule, null, mat,
+                -4.37114e-08f, 0.7f, 0f, -1f, -3.0598e-08f, 0f, 0f, 0f, 0.7f, 0f, 0f, 0f);
+            Part(pivot, "Fin", PrimitiveType.Cube, ProceduralMeshes.Prism, mat,
+                -3.49691e-08f, 0.8f, 0f, -0.8f, -3.49691e-08f, 0f, 0f, 0f, 0.65f, -0.601267f, 0f, 0f);
+            Part(pivot, "Mouth", PrimitiveType.Capsule, null, mat,
+                4.77671e-16f, -1.31134e-08f, -0.25f, -0.25f, -1.31134e-08f, 0f, -1.09278e-08f, 0.3f, -1.09278e-08f, 0.585195f, -0.190077f, 0f);
+            Part(pivot, "Eye", PrimitiveType.Capsule, null, mat,
+                0.3f, 0f, 0f, 0f, -1.74846e-08f, 0.3f, 0f, -0.4f, -1.31134e-08f, 0.301853f, 0.173736f, 0f);
+        }
+
+        static void Part(Transform parent, string name, PrimitiveType type, Mesh meshOverride, Material mat, params float[] godot)
+        {
+            var go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            Object.Destroy(go.GetComponent<Collider>());
+            if (meshOverride != null) go.GetComponent<MeshFilter>().sharedMesh = meshOverride;
+            go.GetComponent<Renderer>().sharedMaterial = mat;
+            go.transform.SetParent(parent, false);
+            GodotSpace.Apply(go.transform, godot);
+        }
     }
 }

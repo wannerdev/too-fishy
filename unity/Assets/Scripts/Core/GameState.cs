@@ -115,6 +115,9 @@ namespace TooFishy
 
         public void NotifyInventoryUpdated() => OnInventoryUpdated?.Invoke();
 
+        /// <summary>Godot's <c>snapped(depth, 100)</c>: rounds to the nearest hundred, halves away from zero.</summary>
+        public static int SnapDepth(int depth) => Mathf.FloorToInt((depth + 50) / 100f) * 100;
+
         public void SetDepth(int d)
         {
             Depth = d;
@@ -127,7 +130,7 @@ namespace TooFishy
                 return;
             }
 
-            int band = (d / 100) * 100; // 0-99 Surface, 100-199 Deep, ...
+            int band = SnapDepth(d); // Godot snapped(d, 100): 0-49 Surface, 50-149 Deep, ...
             Stage newStage = Stage.Surface;
             foreach (var kv in DepthStageMap)
             {
@@ -184,7 +187,7 @@ namespace TooFishy
             Time.timeScale = 1f;
 
             if (Player != null)
-                Player.Teleport(new Vector3(-8f, 0f, 0.33f));
+                Player.Teleport(GodotSpace.Pos(-8f, 0f, 0.33f));
         }
 
         public void StartIntroMission()
@@ -203,7 +206,7 @@ namespace TooFishy
             Time.timeScale = 1f;
 
             if (Player != null)
-                Player.Teleport(new Vector3(-8f, -450f, 0.33f));
+                Player.Teleport(GodotSpace.Pos(-8f, -450f, 0.33f));
         }
 
         void SetupFriendUpgrades()
@@ -229,7 +232,7 @@ namespace TooFishy
             BossEncountered = false;
             Inventory.Clear();
             if (Player != null)
-                Player.Teleport(new Vector3(-8f, 0f, 0.33f));
+                Player.Teleport(GodotSpace.Pos(-8f, 0f, 0.33f));
         }
 
         public void ApplyPressureDamage(float dt)
@@ -278,7 +281,7 @@ namespace TooFishy
             IsDocked = false;
             Time.timeScale = 1f;
             if (Player != null)
-                Player.Teleport(new Vector3(-8f, 0f, 0.33f));
+                Player.Teleport(GodotSpace.Pos(-8f, 0f, 0.33f));
             OnRespawn?.Invoke();
         }
 
