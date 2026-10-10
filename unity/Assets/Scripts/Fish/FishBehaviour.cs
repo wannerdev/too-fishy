@@ -90,6 +90,10 @@ namespace TooFishy
             var fish = Spawn(pos, item.Type, Stage.Surface, parent, 0, item.Shiny);
             fish.Weight = item.Weight;
             fish.Price = item.Price;
+            // release_fish() rolls the weight in 0.8–1.2 × the item's weight, which scales the
+            // fish to 1.0–1.6 (1.3 on average). The weight itself is kept so a fish can't change
+            // value by being released and caught again.
+            fish.transform.localScale = new Vector3(1.3f, 1.3f, 1f);
             var player = GameState.Instance?.PlayerTransform;
             if (scatter && player != null) fish.Scatter(player);
             return fish;

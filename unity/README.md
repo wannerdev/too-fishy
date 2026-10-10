@@ -70,7 +70,8 @@ Assets/
 - Godot bugs that were deliberately not copied: the intro replaying on every launch, the missing
   control tutorials after the intro, crate barriers at twice the section depth, inverted vertical
   touch input, the dock popup saying "Drone sold…", the silent shiny-catch sound, the unreachable
-  mind-control escape, and the boss section overlapping the next sections.
+  mind-control escape, the boss section overlapping the next sections, and released fish re-rolling
+  their weight (±20 %), which let a fish change value by being released and caught again.
 - The boss section's large rock (`gestein_v001.obj`, 344k vertices) is replaced by the smaller
   `gestein_v003.obj` scaled to the same size, to keep it light enough for phones.
 - Gravity is disabled in Physics settings (underwater 2.5D movement).
