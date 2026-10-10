@@ -28,7 +28,7 @@ namespace TooFishy.EditorTools
         const string GeneratedDir = OutRoot + "/Generated";
         const string StampFile = OutRoot + "/.synced";
         // Bump when the file list or a material definition changes.
-        const string Version = "3";
+        const string Version = "4";
 
         /// <summary>Paths relative to the repository root, copied verbatim under <see cref="OutRoot"/>.</summary>
         static readonly string[] Files =
@@ -305,6 +305,9 @@ namespace TooFishy.EditorTools
             var overlay = Standard("walls_overlay_section", color: new Color(0.0627451f, 0.243137f, 0.368627f, 0.862745f), smoothness: 0f);
             MakeFade(overlay);
             overlay.renderQueue = (int)RenderQueue.Transparent + 1;
+
+            // materials/walls/walls_overlay.tres (opaque, drawn over the rock in the boss section)
+            Standard("walls_overlay", color: new Color(0.145098f, 0.239216f, 0.305882f), smoothness: 0f);
 
             // materials/walls/veins.tres / veins_lava.tres
             Standard("veins", color: new Color(0f, 0.286275f, 0.247059f), smoothness: 0f);

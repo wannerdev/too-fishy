@@ -23,6 +23,8 @@ namespace TooFishy
         /// <summary>setDialogStage() pauses the tree; the initial TUTORIAL1 is shown without pausing.</summary>
         public static bool PausesGame => Displayed && _pausing;
         static bool _pausing;
+        /// <summary>game_state.gd is_boss_defeated(): the WIN dialog has been reached.</summary>
+        public static bool WinReached { get; private set; }
 
         static readonly Dictionary<DialogSection, int> DepthMap = new()
         {
@@ -41,7 +43,7 @@ namespace TooFishy
         };
 
         public static string CurrentFrom => From(Section);
-        public static string CurrentText => ToUnityRichText(Lines[Section][Mathf.Clamp(Index, 0, Lines[Section].Length - 1)]);
+        public static string CurrentText => Lines.TryGetValue(Section, out var l) ? ToUnityRichText(l[Mathf.Clamp(Index, 0, l.Length - 1)]) : "";
 
         public static void Reset()
         {
@@ -49,6 +51,7 @@ namespace TooFishy
             Index = 0;
             Displayed = true;
             _pausing = false;
+            WinReached = false;
         }
 
         public static void SetStage(DialogSection section)
@@ -57,6 +60,7 @@ namespace TooFishy
             Index = 0;
             Displayed = true;
             _pausing = true;
+            if (section == DialogSection.Win) WinReached = true;
         }
 
         /// <summary>boss.gd process_dialog_depth(): tutorial hints as the player first reaches a depth.</summary>
@@ -68,10 +72,18 @@ namespace TooFishy
                     SetStage(kv.Key);
         }
 
+        /// <summary>cheats.gd skip_dialog(): close the dialog and stop further story dialogs.</summary>
+        public static void Skip()
+        {
+            Displayed = false;
+            Index = 0;
+            Section = (DialogSection)999;
+        }
+
         /// <summary>The Continue button: next line, or close the dialog.</summary>
         public static void Continue()
         {
-            if (Index < Lines[Section].Length - 1)
+            if (Lines.TryGetValue(Section, out var lines) && Index < lines.Length - 1)
             {
                 Index++;
                 return;

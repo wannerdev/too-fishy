@@ -9,7 +9,7 @@ namespace TooFishy
     public class GameBootstrap : MonoBehaviour
     {
         [Tooltip("If true, start as the friend intro dive in the Hot zone.")]
-        public bool EnableIntroMission = false;
+        public bool EnableIntroMission = true;
 
         void Awake()
         {
@@ -36,6 +36,7 @@ namespace TooFishy
             var levelGo = new GameObject("Level");
             levelGo.transform.SetParent(world, false);
             var level = levelGo.AddComponent<LevelGenerator>();
+            gs.Level = level;
             level.Initialize(world);
 
             BuildUI();
@@ -189,6 +190,7 @@ namespace TooFishy
             upgrades.Ak47 = ak.Model;
             upgrades.Ak47Second = ak2.Model;
             player.PickaxeTool = pickaxeTool;
+            player.SubMesh = sub;
 
             // PopupSpawnPosition (player-local 0.153614, 0.666139, 0)
             var popup = new GameObject("PopupSpawnPosition").transform;
@@ -236,7 +238,9 @@ namespace TooFishy
             bool ak = gs.GetUpgradeLevel(Upgrade.Ak47) > 0;
             bool ak2 = gs.GetUpgradeLevel(Upgrade.DualAk47) > 0;
 
-            if (gs.IsDocked)
+            var player = gs.Player;
+            if (player != null && player.IsFriendSubmarine && Lamp != null) Lamp.enabled = false;
+            else if (gs.IsDocked)
             {
                 if (lamp && Lamp != null) Lamp.enabled = true;
                 if (ak && Ak47 != null) Ak47.SetActive(true);

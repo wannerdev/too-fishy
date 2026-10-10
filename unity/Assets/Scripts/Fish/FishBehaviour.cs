@@ -168,6 +168,8 @@ namespace TooFishy
 
         void AddShinyParticles()
         {
+            // fish.gd: shiny particles are disabled on WebGL for performance
+            if (Application.platform == RuntimePlatform.WebGLPlayer) return;
             // materials/mobs/ShinyParticles.tres with the shiny colour set in fish.gd
             var go = new GameObject("ShinyParticles");
             go.transform.SetParent(transform, false);

@@ -52,6 +52,18 @@ namespace TooFishy
             }
         }
 
+        /// <summary>boss_character.gd destroy_barrier(): the charging boss smashes a crate (no reward).</summary>
+        public void Smash()
+        {
+            Effects.SpawnBurst(transform.position, new Effects.Burst
+            {
+                Amount = 50, Lifetime = 2f, SpeedMin = 3f, SpeedMax = 8f, Spread = 89f, EmitRadius = 1f,
+                Gravity = new Vector3(0f, -3f, 0f), Size = 0.2f, SizeMin = 0.1f, SizeMax = 0.3f, Color = new Color(0.8f, 0.4f, 0.1f)
+            });
+            GameState.Instance?.DestroyedBarriers.Add(_key);
+            Destroy(gameObject);
+        }
+
         // destroyable_barier.gd uses staged crack overlays; here each stage darkens the crate.
         void UpdateCrackAppearance()
         {

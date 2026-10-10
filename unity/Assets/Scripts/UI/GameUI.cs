@@ -16,6 +16,7 @@ namespace TooFishy
         UpgradeMenu _upgrades;
         InventoryMenu _inventory;
         InvUi _invUi;
+        bool _tutorialAfterRespawn;
 
         public static GameUI Create()
         {
@@ -42,6 +43,7 @@ namespace TooFishy
             ui._upgrades = UpgradeMenu.Create(canvas);
             DeathScreen.Create(canvas);
             ui._pause = PauseMenu.Create(canvas);
+            Cheats.Create(canvas);
 
             if (GameInput.TouchMode)
             {
@@ -88,6 +90,21 @@ namespace TooFishy
             {
                 _inventory.Toggle();
                 _invUi.gameObject.SetActive(!_invUi.gameObject.activeSelf);
+            }
+
+            // boss_dialog_ui.gd: closing the post-intro rescue dialog triggers the regular death
+            if (gs.PendingRegularDeathTransition && !Dialogs.Displayed)
+            {
+                gs.PendingRegularDeathTransition = false;
+                gs.Die(false);
+                _tutorialAfterRespawn = true;
+            }
+            // Godot never shows the control tutorials after the intro (its dialog state is past
+            // them); the port starts them once the player respawns at the surface.
+            if (_tutorialAfterRespawn && !gs.DeathScreen)
+            {
+                _tutorialAfterRespawn = false;
+                Dialogs.Reset();
             }
 
             bool frozen = _pause.IsPaused || Dialogs.PausesGame;

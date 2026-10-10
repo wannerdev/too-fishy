@@ -167,4 +167,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39195e201e0a6c696951c81ffb90cc7b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  EnableIntroMission: 0
+  EnableIntroMission: 1

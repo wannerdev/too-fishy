@@ -58,7 +58,9 @@ namespace TooFishy
             fix.SetParent(node, false);
             fix.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
-            var prefab = Model(modelPath);
+            // gestein_v001.obj (boss section rock) has 344k vertices, too heavy for phones; the
+            // similar gestein_v003 rock stands in, fitted to v001's bounds.
+            var prefab = Model(modelPath == "meshes/gestein_v001.obj" ? "meshes/gestein_v003.obj" : modelPath);
             GameObject model;
             if (prefab != null)
             {
@@ -102,6 +104,7 @@ namespace TooFishy
             { "meshes/SM_Blobert.obj", new Bounds(new Vector3(0f, 0f, 0f), new Vector3(7.250636f, 2.636098f, 6.716822f)) },
             { "meshes/SM_Crate.obj", new Bounds(new Vector3(0f, 0f, 0f), new Vector3(3.426820f, 3.354746f, 3.426820f)) },
             { "meshes/SM_Pickaxe.obj", new Bounds(new Vector3(0f, 0f, 0f), new Vector3(0.628562f, 4.447320f, 3.619540f)) },
+            { "meshes/gestein_v001.obj", new Bounds(new Vector3(0.476100f, 3.605497f, 1.262957f), new Vector3(6.683904f, 12.29678f, 16.38527f)) },
             { "meshes/gestein_v003.obj", new Bounds(new Vector3(2.619935f, -0.564794f, 0.149968f), new Vector3(2.609154f, 20.937698f, 16.794592f)) },
             { "meshes/vains_v003.obj", new Bounds(new Vector3(2.443382f, -0.877941f, 0.716296f), new Vector3(2.256048f, 20.011921f, 14.704123f)) },
             { "meshes/dock3_remesh.fbx", new Bounds(new Vector3(-0.001991f, 0.013149f, -0.003475f), new Vector3(2.003870f, 0.787000f, 1.126116f)) },

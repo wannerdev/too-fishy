@@ -33,6 +33,9 @@ namespace TooFishy
         Vector3 _externalForces;
 
         public Pickaxe PickaxeTool;
+        public Transform SubMesh;
+        public bool IsFriendSubmarine { get; private set; }
+        Light _friendLamp;
         public Transform PopupSpawn;
 
         public float Trauma => _trauma;
@@ -312,16 +315,45 @@ namespace TooFishy
         /// </summary>
         void ProcessTrauma(float dt)
         {
+            _shakeTime += dt;
             _trauma = Mathf.Max(0f, _trauma - 1.7f * dt);
             if (_cam == null) return;
-            if (_trauma > 0f)
+            if (_trauma <= 0f)
             {
-                float shake = _trauma * _trauma * 0.1f;
-                _cam.transform.localRotation = Quaternion.Euler(
-                    Random.Range(-10f, 10f) * shake, Random.Range(-10f, 10f) * shake, Random.Range(-5f, 5f) * shake);
-            }
-            else
                 _cam.transform.localRotation = Quaternion.identity;
+                return;
+            }
+            float shake = _trauma * _trauma * 0.1f;
+            float x, y, z;
+            switch (TraumaShakeMode)
+            {
+                case 2: // sine wave
+                    x = Mathf.Sin(_shakeTime * 20f) * 10f * shake;
+                    y = Mathf.Cos(_shakeTime * 15f) * 10f * shake;
+                    z = Mathf.Sin(_shakeTime * 10f) * 5f * shake;
+                    break;
+                case 3: // pseudo-random
+                    x = PseudoRandom(_shakeTime) * 10f * shake;
+                    y = PseudoRandom(_shakeTime + 100f) * 10f * shake;
+                    z = PseudoRandom(_shakeTime + 200f) * 5f * shake;
+                    break;
+                default: // 1: random jitter (Godot default)
+                    x = Random.Range(-10f, 10f) * shake;
+                    y = Random.Range(-10f, 10f) * shake;
+                    z = Random.Range(-5f, 5f) * shake;
+                    break;
+            }
+            _cam.transform.localRotation = Quaternion.Euler(-x, -y, z);
+        }
+
+        /// <summary>player.gd traumaShakeMode (cheats can switch it).</summary>
+        public int TraumaShakeMode = 1;
+        float _shakeTime;
+
+        static float PseudoRandom(float seed)
+        {
+            float v = Mathf.Sin(seed * 12.9898f) * 43758.5453f;
+            return (v - (float)System.Math.Truncate(v)) * 2f - 1f;
         }
 
         /// <summary>player.gd process_lava_damage(): 10 HP/s, shaking, groans and damage flashes.</summary>
@@ -331,6 +363,30 @@ namespace TooFishy
             AddTrauma(0.05f);
             if (Random.value < 0.1f) SoundPlayer.Play("ughhh");
             if (Random.value < 0.02f) DamageEffects.Instance?.ShowDamage();
+        }
+
+        /// <summary>player.gd switch_to_friend_submarine(): yellow hull, omni light instead of the lamp.</summary>
+        public void SwitchToFriendSubmarine()
+        {
+            if (IsFriendSubmarine || SubMesh == null) return;
+            IsFriendSubmarine = true;
+            Friend.TintFriend(SubMesh);
+            var lampGo = new GameObject("FriendLamp");
+            lampGo.transform.SetParent(SubMesh, false);
+            _friendLamp = lampGo.AddComponent<Light>();
+            _friendLamp.type = LightType.Point;
+            _friendLamp.color = new Color(1f, 1f, 0.8f);
+            _friendLamp.intensity = 1f;
+            _friendLamp.range = 8f;
+        }
+
+        /// <summary>player.gd switch_to_normal_submarine()</summary>
+        public void SwitchToNormalSubmarine()
+        {
+            if (!IsFriendSubmarine || SubMesh == null) return;
+            IsFriendSubmarine = false;
+            GodotAssets.SetMaterial(SubMesh, "submarine");
+            if (_friendLamp != null) Destroy(_friendLamp.gameObject);
         }
 
         public void Teleport(Vector3 pos)
