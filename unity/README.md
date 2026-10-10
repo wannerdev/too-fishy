@@ -67,7 +67,12 @@ Assets/
 - Coordinates: Godot (x, y, z) is Unity (x, y, −z). Scene transforms are copied verbatim from the
   `.tscn` files through `GodotSpace.Apply`, which also handles the X mirror of Unity's model importer.
 - UI text uses Open Sans SemiBold (Godot's default font, `Assets/Resources/Fonts`, SIL OFL).
-- Not ported yet: AK-47 / dual guns, the boss's attack phases and mind-control zones, the intro mission, pickaxe swing animation, drone flight, ambient particles.
+- Godot bugs that were deliberately not copied: the intro replaying on every launch, the missing
+  control tutorials after the intro, crate barriers at twice the section depth, inverted vertical
+  touch input, the dock popup saying "Drone sold…", the silent shiny-catch sound, the unreachable
+  mind-control escape, and the boss section overlapping the next sections.
+- The boss section's large rock (`gestein_v001.obj`, 344k vertices) is replaced by the smaller
+  `gestein_v003.obj` scaled to the same size, to keep it light enough for phones.
 - Gravity is disabled in Physics settings (underwater 2.5D movement).
 
 ## Original
