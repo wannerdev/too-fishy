@@ -80,6 +80,16 @@ namespace TooFishy
             return false;
         }
 
+        /// <summary>Godot "shoot" action: right mouse button held (AK47s).</summary>
+        public static bool VirtualShootHeld;
+        public static bool ShootHeld => VirtualShootHeld || (!TouchMode && Input.GetMouseButton(1) && !IsPointerOverUI());
+
+        /// <summary>Godot "inventory_save" action (V): quick save with Inventory Insurance.</summary>
+        public static bool ConsumeQuickSave() => Input.GetKeyDown(KeyCode.V);
+
+        /// <summary>Godot "cht_toggle" action (C): cheats panel.</summary>
+        public static bool ConsumeCheats() => Input.GetKeyDown(KeyCode.C);
+
         public static bool ConsumeBuoy() => Consume(ref _virtualBuoy) || Input.GetKeyDown(KeyCode.B);
         public static bool ConsumeDrone() => Consume(ref _virtualDrone) || Input.GetKeyDown(KeyCode.Q);
         public static bool ConsumePickaxe() => Consume(ref _virtualPickaxe) || Input.GetKeyDown(KeyCode.Space);

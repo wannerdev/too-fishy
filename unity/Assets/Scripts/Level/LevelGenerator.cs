@@ -323,6 +323,16 @@ namespace TooFishy
                 -0.00814527f, 1.2191f, 0.00407302f, -0.672664f, -0.00789123f, 1.01674f, 1.01673f, 0.0045457f, 0.672698f,
                 -13.6118f, -4.41036f, -8.67722f);
 
+            // Level/lava of main_scene.tscn: a lava_side patch near the right wall (~20 m) and a lava
+            // column near the left wall (~35-48 m); both hurt
+            var lavaRoot = new GameObject("lava").transform;
+            lavaRoot.SetParent(_worldRoot, false);
+            lavaRoot.localPosition = GodotSpace.Pos(0f, -10f, 3.28338f);
+            LavaZone.Create(lavaRoot, "Lava2", true,
+                1.38184f, 0f, -0.826246f, 0f, 1.62324f, 0f, 2.02685f, 0f, 0.56331f, -1.95878f, -10.4057f, -2.69743f);
+            LavaZone.Create(lavaRoot, "Lava5", false,
+                0.580655f, 0f, 0.258595f, 0f, 7f, 0f, -1.35555f, 0f, 0.11077f, -26.5695f, -30.7557f, -3.59032f);
+
             // LeftBarrier / RightBarrier (level_barrier.tscn, invisible): one tall pair for all sections
             foreach (float x in new[] { LeftBarrierX, RightBarrierX })
             {

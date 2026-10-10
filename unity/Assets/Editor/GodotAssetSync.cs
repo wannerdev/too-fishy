@@ -28,7 +28,7 @@ namespace TooFishy.EditorTools
         const string GeneratedDir = OutRoot + "/Generated";
         const string StampFile = OutRoot + "/.synced";
         // Bump when the file list or a material definition changes.
-        const string Version = "2";
+        const string Version = "3";
 
         /// <summary>Paths relative to the repository root, copied verbatim under <see cref="OutRoot"/>.</summary>
         static readonly string[] Files =
@@ -53,6 +53,8 @@ namespace TooFishy.EditorTools
             "meshes/short_submar_texture_0.png",
             "meshes/ak47_0406195124_texture.fbx",
             "meshes/ak47_0406195124_texture_0.png",
+            "meshes/ak47_texture.fbx",
+            "meshes/ak47_texture_0.png",
 
             // Material textures
             "textures/sub/SM_FishSubmarine_initialShadingGroup_BaseColor.png",
@@ -315,6 +317,7 @@ namespace TooFishy.EditorTools
             Standard("dock3_remesh", albedo: Tex("meshes/dock3_remesh_0.png"), smoothness: 0.3f);
             Standard("short_submar_texture", albedo: Tex("meshes/short_submar_texture_0.png"), smoothness: 0.3f);
             Standard("ak47", albedo: Tex("meshes/ak47_0406195124_texture_0.png"), smoothness: 0.3f);
+            Standard("ak47_second", albedo: Tex("meshes/ak47_texture_0.png"), smoothness: 0.3f);
 
             // materials/backgrounds/*.tres through background_fade.gdshader
             var bgShader = Shader.Find("TooFishy/BackgroundFade");
@@ -451,6 +454,7 @@ namespace TooFishy.EditorTools
             importer.addCollider = false;
             importer.globalScale = 1f;
             importer.useFileScale = true;
+            importer.bakeAxisConversion = true; // Y-up geometry without a corrective root rotation
             importer.indexFormat = ModelImporterIndexFormat.Auto;
             // Keep Godot's smoothing: OBJ normals are imported as authored.
             importer.importNormals = ModelImporterNormals.Import;

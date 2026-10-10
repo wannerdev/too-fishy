@@ -32,7 +32,11 @@ namespace TooFishy
         bool _wasDocked;
         Vector3 _externalForces;
 
+        public Pickaxe PickaxeTool;
+        public Transform PopupSpawn;
+
         public float Trauma => _trauma;
+        Vector3 PopupPos => PopupSpawn != null ? PopupSpawn.position : transform.position + Vector3.up * 0.67f;
         public Transform Pivot => _pivot;
         public bool FacingRight => _facingRight;
         public float HarpoonCdRemaining => _harpoonCd;
@@ -80,8 +84,8 @@ namespace TooFishy
             HandleActions();
             UpdateDepthAndDock(Time.deltaTime);
             gs.ApplyPressureDamage(Time.deltaTime);
-            DecayTrauma(Time.deltaTime);
-            ApplyCameraShake();
+            if (LavaZone.Contains(_cc)) ProcessLavaDamage(Time.deltaTime); // player.gd is_in_lava_area
+            ProcessTrauma(Time.deltaTime);
         }
 
         void TickCooldowns(float dt)
@@ -178,34 +182,43 @@ namespace TooFishy
             if (fire && _harpoonCd <= 0f)
                 ShootHarpoon(aimScreenPos);
 
-            if (GameInput.ConsumeBuoy() && gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0 && _buoyCd <= 0f)
+            // player.gd activate_surface_buoy(): only below y -1, not docked
+            if (GameInput.ConsumeBuoy() && gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0 && !gs.IsDocked &&
+                _buoyCd <= 0f && transform.position.y < -1f)
             {
                 Teleport(new Vector3(transform.position.x, -1f, PlayerZ));
                 SoundPlayer.Play("bup");
+                Effects.BuoyEffect(transform.position);
                 _buoyCd = BuoyCooldown;
+            }
+
+            // Quick save (V) with Inventory Insurance
+            if (GameInput.ConsumeQuickSave() && gs.GetUpgradeLevel(Upgrade.InventorySave) > 0 && !gs.IsDocked)
+            {
+                SaveSystem.SaveGame();
+                SoundPlayer.Play("save");
+                PopupText.Show("Game Saved", PopupPos, Color.green);
             }
 
             if (GameInput.ConsumeDrone() && !gs.IsDocked)
                 ActivateSellingDrone();
 
-            if (GameInput.ConsumePickaxe() && gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0)
-                SwingPickaxe();
+            if (GameInput.ConsumePickaxe() && gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0 && PickaxeTool != null)
+                PickaxeTool.TrySwing();
         }
 
-        /// <summary>player.gd activate_selling_drone() (Q / inventory menu button).</summary>
+        /// <summary>
+        /// player.gd activate_selling_drone() (Q / inventory menu button): the drone sub rises
+        /// from the submarine and drags the released catch to the dock at about 3 u/s; the money
+        /// arrives with it.
+        /// </summary>
         public void ActivateSellingDrone()
         {
             var gs = GameState.Instance;
             if (gs == null || gs.GetUpgradeLevel(Upgrade.DroneSelling) <= 0 || gs.IsIntro()) return;
-            if (_droneCd > 0f || gs.Inventory.Items.Count == 0) return;
-            int sold = gs.Inventory.SellItems();
+            if (_droneCd > 0f || gs.IsDocked || gs.Inventory.Items.Count == 0) return;
+            DroneRun.Launch(this, gs);
             _droneCd = DroneCooldown;
-            Achievements.RecordDroneLift();
-            if (sold > 0)
-            {
-                SoundPlayer.Play("coins");
-                PopupText.Show("Drone sold all fish for $" + sold, transform.position + Vector3.up, Color.green);
-            }
         }
 
         void ShootHarpoon(Vector2 aimScreenPos)
@@ -234,32 +247,27 @@ namespace TooFishy
             SoundPlayer.Play("harp");
         }
 
-        void SwingPickaxe()
-        {
-            var hits = Physics.OverlapSphere(transform.position + (_facingRight ? Vector3.right : Vector3.left) * 1.2f, 1.2f);
-            foreach (var h in hits)
-            {
-                // The component sits on the barrier root; the hit collider is one of its blocks.
-                var barrier = h.GetComponentInParent<DestroyableBarrier>();
-                if (barrier != null) barrier.TakeDamage(1);
-            }
-        }
-
         void UpdateDepthAndDock(float dt)
         {
             var gs = GameState.Instance;
-            int depth = Mathf.Max(0, Mathf.RoundToInt(-transform.position.y));
+            // level.gd: depth = int(player.y) * -1 (truncated)
+            int depth = Mathf.Max(0, -(int)transform.position.y);
             gs.SetDepth(depth);
 
             bool docked = transform.position.y >= -1f && transform.position.x > -7f && !gs.IsIntro();
             gs.IsDocked = docked;
             if (docked)
             {
-                gs.Heal(5f * dt);
+                if (gs.Health < 100f) gs.Heal(5f * dt);
                 if (!_wasDocked)
                 {
+                    // player.gd onDock()
                     int sold = gs.Inventory.SellItems();
-                    if (sold > 0) PopupText.Show($"+${sold}", transform.position + Vector3.up * 1.5f);
+                    if (sold > 0)
+                    {
+                        SoundPlayer.Play("coins");
+                        PopupText.Show("Sold items for: $" + sold, PopupPos, Color.yellow);
+                    }
                 }
             }
             _wasDocked = docked;
@@ -273,19 +281,21 @@ namespace TooFishy
             if (item.Shiny) trauma *= 1.5f;
             AddTrauma(trauma);
 
-            bool added = GameState.Instance.Inventory.Add(item);
-            if (added)
-                PopupText.Show(item.Shiny ? $"★ {item.Price}$" : $"{item.Price}$", fish.transform.position);
-            else
-                PopupText.Show("Cargo full!", transform.position + Vector3.up);
-
+            Effects.CatchEffect(fish.transform.position, item.Shiny);
             Destroy(fish.gameObject);
+
+            // player.gd catch_fish()
+            if (GameState.Instance.Inventory.Add(item))
+                PopupText.Show($"Weight added: {item.Weight:0} kg\nValue: ${item.Price}", PopupPos, Color.green);
+            else
+                PopupText.Show("Inventory full!", PopupPos, Color.red);
         }
 
+        /// <summary>player.gd hurtPlayer(): trauma always, damage at most once per second.</summary>
         public void Hurt(int damage)
         {
-            if (!_canBeHurt) return;
             AddTrauma(1f);
+            if (!_canBeHurt) return;
             GameState.Instance.Damage(damage);
             SoundPlayer.Play("ughhh");
             DamageEffects.Instance?.ShowDamage();
@@ -296,15 +306,31 @@ namespace TooFishy
         void ResetHurt() => _canBeHurt = true;
 
         public void AddTrauma(float amount) => _trauma = Mathf.Clamp01(_trauma + amount);
-        void DecayTrauma(float dt) => _trauma = Mathf.Max(0f, _trauma - 1.7f * dt);
-
-        void ApplyCameraShake()
+        /// <summary>
+        /// player.gd processTrauma() (traumaShakeMode 1): random camera rotation of up to
+        /// (10°, 10°, 5°) × trauma² × 0.1, trauma decaying at 1.7/s.
+        /// </summary>
+        void ProcessTrauma(float dt)
         {
+            _trauma = Mathf.Max(0f, _trauma - 1.7f * dt);
             if (_cam == null) return;
-            float shake = _trauma * _trauma * 0.1f;
-            var offset = Random.insideUnitSphere * shake;
-            offset.z = 0f;
-            _cam.transform.localPosition = GodotSpace.Pos(0f, 1.18841f, 5.28607f) + offset;
+            if (_trauma > 0f)
+            {
+                float shake = _trauma * _trauma * 0.1f;
+                _cam.transform.localRotation = Quaternion.Euler(
+                    Random.Range(-10f, 10f) * shake, Random.Range(-10f, 10f) * shake, Random.Range(-5f, 5f) * shake);
+            }
+            else
+                _cam.transform.localRotation = Quaternion.identity;
+        }
+
+        /// <summary>player.gd process_lava_damage(): 10 HP/s, shaking, groans and damage flashes.</summary>
+        void ProcessLavaDamage(float dt)
+        {
+            GameState.Instance.Damage(10f * dt);
+            AddTrauma(0.05f);
+            if (Random.value < 0.1f) SoundPlayer.Play("ughhh");
+            if (Random.value < 0.02f) DamageEffects.Instance?.ShowDamage();
         }
 
         public void Teleport(Vector3 pos)
@@ -319,11 +345,9 @@ namespace TooFishy
 
         void OnControllerColliderHit(ControllerColliderHit hit)
         {
-            var fish = hit.collider.GetComponent<FishBehaviour>();
-            if (fish != null && fish.Type == FishType.Spikey)
-                Hurt(5);
-            else if (fish == null && Mathf.Abs(hit.normal.x) > 0.7f)
-                _velX = 0f;
+            // player.gd collision(): a solid wall kills horizontal momentum (fish never block the
+            // CharacterController; they are pushed by the hull instead)
+            if (Mathf.Abs(hit.normal.x) > 0.7f) _velX = 0f;
         }
     }
 }

@@ -19,7 +19,7 @@ namespace TooFishy
 
         RectTransform _root, _joyBase, _joyKnob;
         Image _shoot;
-        Button _buoyBtn, _droneBtn, _pickaxeBtn;
+        Button _buoyBtn, _droneBtn, _pickaxeBtn, _gunBtn;
 
         public static TouchControls Create(Transform canvasRoot)
         {
@@ -68,6 +68,9 @@ namespace TooFishy
             _buoyBtn = SmallButton("BuoyBtn", "BUOY", ref x, GameInput.PressBuoy);
             _droneBtn = SmallButton("DroneBtn", "SELL", ref x, GameInput.PressDrone);
             _pickaxeBtn = SmallButton("PickaxeBtn", "DIG", ref x, GameInput.PressPickaxe);
+            // Hold to fire the AK47s (Godot: hold the right mouse button)
+            _gunBtn = SmallButton("GunBtn", "GUN", ref x, null);
+            _gunBtn.gameObject.AddComponent<HoldButton>();
         }
 
         Button SmallButton(string name, string label, ref float right, UnityEngine.Events.UnityAction onClick)
@@ -85,6 +88,9 @@ namespace TooFishy
             _buoyBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0);
             _droneBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0);
             _pickaxeBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0);
+            bool gun = gs.GetUpgradeLevel(Upgrade.Ak47) > 0;
+            if (!gun) GameInput.VirtualShootHeld = false;
+            _gunBtn.gameObject.SetActive(gun);
         }
 
         Vector2 ToLocal(PointerEventData e)
@@ -124,6 +130,13 @@ namespace TooFishy
             public void OnPointerDown(PointerEventData e) => Owner.JoystickDown(e);
             public void OnDrag(PointerEventData e) => Owner.JoystickDrag(e);
             public void OnPointerUp(PointerEventData e) => Owner.JoystickUp();
+        }
+
+        class HoldButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+        {
+            public void OnPointerDown(PointerEventData e) => GameInput.VirtualShootHeld = true;
+            public void OnPointerUp(PointerEventData e) => GameInput.VirtualShootHeld = false;
+            void OnDisable() => GameInput.VirtualShootHeld = false;
         }
 
         class ShootButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler

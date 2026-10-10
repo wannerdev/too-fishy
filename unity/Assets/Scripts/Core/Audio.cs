@@ -12,6 +12,41 @@ namespace TooFishy
 
         public static void Play(string soundName)
         {
+            var clip = Clip(soundName);
+            if (clip == null) return;
+
+            if (_source == null)
+            {
+                var go = new GameObject("SoundPlayer");
+                Object.DontDestroyOnLoad(go);
+                _source = go.AddComponent<AudioSource>();
+                _source.playOnAwake = false;
+                _source.spatialBlend = 0f;
+            }
+            // main_scene.tscn: SoundPlayer/player volume_db = -11.876, then the SFX setting
+            _source.volume = Mathf.Pow(10f, -11.876f / 20f) * Settings.SfxVolume;
+            _source.clip = clip;
+            _source.Play();
+        }
+
+        /// <summary>A sound on its own player (e.g. catch_effect.gd's AudioStreamPlayer3D).</summary>
+        public static void Play(string soundName, float pitch, float volume = 1f)
+        {
+            var clip = Clip(soundName);
+            if (clip == null) return;
+            var go = new GameObject("Sound_" + soundName);
+            var src = go.AddComponent<AudioSource>();
+            src.playOnAwake = false;
+            src.spatialBlend = 0f;
+            src.pitch = pitch;
+            src.volume = Mathf.Clamp01(volume * Settings.SfxVolume);
+            src.clip = clip;
+            src.Play();
+            Object.Destroy(go, clip.length / Mathf.Max(0.1f, pitch) + 0.1f);
+        }
+
+        static AudioClip Clip(string soundName)
+        {
             string path = soundName switch
             {
                 "bupp" => "sounds/bupp.wav",
@@ -29,23 +64,9 @@ namespace TooFishy
             if (path == null)
             {
                 Debug.LogWarning($"[SoundPlayer] Unknown sound: {soundName}");
-                return;
+                return null;
             }
-            var clip = GodotAssets.Audio(path);
-            if (clip == null) return;
-
-            if (_source == null)
-            {
-                var go = new GameObject("SoundPlayer");
-                Object.DontDestroyOnLoad(go);
-                _source = go.AddComponent<AudioSource>();
-                _source.playOnAwake = false;
-                _source.spatialBlend = 0f;
-            }
-            // main_scene.tscn: SoundPlayer/player volume_db = -11.876, then the SFX setting
-            _source.volume = Mathf.Pow(10f, -11.876f / 20f) * Settings.SfxVolume;
-            _source.clip = clip;
-            _source.Play();
+            return GodotAssets.Audio(path);
         }
     }
 

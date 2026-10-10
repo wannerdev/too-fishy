@@ -46,6 +46,7 @@ namespace TooFishy
 
             var go = new GameObject($"Fish_{type}");
             go.tag = "Fish";
+            go.layer = Layers.Fish;
             go.transform.SetParent(parent, true);
             go.transform.position = new Vector3(pos.x, pos.y, FishZ);
 
@@ -84,7 +85,7 @@ namespace TooFishy
         }
 
         /// <summary>inventory.gd release_fish(): put a caught fish back, scattering away from the sub.</summary>
-        public static FishBehaviour SpawnReleased(InventoryItem item, Vector3 pos, Transform parent)
+        public static FishBehaviour SpawnReleased(InventoryItem item, Vector3 pos, Transform parent, bool scatter = true)
         {
             var fish = Spawn(pos, item.Type, Stage.Surface, parent);
             fish.Weight = item.Weight;
@@ -92,7 +93,7 @@ namespace TooFishy
             if (item.Shiny && !fish.IsShiny) fish.AddShinyParticles();
             fish.IsShiny = item.Shiny;
             var player = GameState.Instance?.PlayerTransform;
-            if (player != null) fish.Scatter(player);
+            if (scatter && player != null) fish.Scatter(player);
             return fish;
         }
 
@@ -203,6 +204,16 @@ namespace TooFishy
             float dt = Time.deltaTime;
             if (_rotationCdLeft > 0f) _rotationCdLeft -= dt;
 
+            // fish.gd: any slide collision of the last move (walls, crates, other fish, the
+            // submarine) turns the fish around, at most every 0.1 s.
+            if (_collided && _rotationCdLeft <= 0f)
+            {
+                _rotationCdLeft = RotationCooldown;
+                _facingLeft = !_facingLeft;
+                SetAngle(Random.Range(MinAngle, MaxAngle));
+            }
+            _collided = false;
+
             var p = transform.position;
             if (p.y >= -0.5f)
             {
@@ -226,19 +237,14 @@ namespace TooFishy
             p += _velocity * dt;
             p.z = FishZ;
 
-            // move_and_slide() hitting a wall: turn around with a new random angle.
-            bool hitWall = (p.x < AreaMinX && _velocity.x < 0f) || (p.x > AreaMaxX && _velocity.x > 0f);
-            if (hitWall)
+            // Safety net in case a fish slips past the play-area walls
+            if ((p.x < AreaMinX && _velocity.x < 0f) || (p.x > AreaMaxX && _velocity.x > 0f))
             {
                 p.x = Mathf.Clamp(p.x, AreaMinX, AreaMaxX);
-                if (_rotationCdLeft <= 0f)
-                {
-                    _rotationCdLeft = RotationCooldown;
-                    _facingLeft = !_facingLeft;
-                    SetAngle(Random.Range(MinAngle, MaxAngle));
-                }
+                _collided = true;
             }
             transform.position = p;
+            ResolveCollisions();
 
             // Godot keeps every fish until it is caught or surfaces; despawn far-away ones so
             // the streamed level does not accumulate them.
@@ -253,6 +259,49 @@ namespace TooFishy
         }
 
         bool IsLookingUp => _angle > 0f;
+
+        bool _collided;
+        Collider _collider;
+        static readonly Collider[] Overlaps = new Collider[16];
+        const int CollisionMask = (1 << Layers.Default) | (1 << Layers.World) | (1 << Layers.Fish) | (1 << Layers.Player);
+
+        /// <summary>
+        /// The depenetration part of Godot's move_and_slide(): the fish is pushed out of anything it
+        /// overlaps. Because the submarine's hull moves into fish (it does not stop at them), this
+        /// is what lets the player push a fish around — e.g. up to the surface, which counts for
+        /// the "surfaced" achievement. Spikey fish hurt the submarine on contact.
+        /// </summary>
+        void ResolveCollisions()
+        {
+            if (_collider == null) _collider = GetComponent<Collider>();
+            if (_collider == null) return;
+
+            var pos = transform.position;
+            var rot = transform.rotation;
+            int n = Physics.OverlapSphereNonAlloc(pos, 3f, Overlaps, CollisionMask, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < n; i++)
+            {
+                var other = Overlaps[i];
+                if (other == null || other.transform.IsChildOf(transform)) continue;
+                bool hull = other.gameObject.layer == Layers.Player && other is CapsuleCollider;
+                if (other.isTrigger && !hull) continue;
+                if (other is CharacterController) continue;
+
+                if (!Physics.ComputePenetration(_collider, pos, rot, other, other.transform.position, other.transform.rotation,
+                        out var dir, out float dist))
+                    continue;
+
+                dir.z = 0f;
+                if (dir.sqrMagnitude < 1e-6f) dir = Vector3.up;
+                pos += dir.normalized * dist;
+                _collided = true;
+
+                if (hull && Type == FishType.Spikey)
+                    GameState.Instance?.Player?.Hurt(5); // player.gd collision(): spikey fish hurt
+            }
+            pos.z = FishZ;
+            transform.position = pos;
+        }
 
         /// <summary>fish.gd set_z_rotation_and_velocity().</summary>
         void SetAngle(float deg)

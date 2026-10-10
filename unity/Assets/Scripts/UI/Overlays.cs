@@ -22,13 +22,14 @@ namespace TooFishy
             public Image Fill;
         }
 
-        Ring _harpoon, _buoy, _drone;
+        Ring _harpoon, _buoy, _drone, _ak47;
 
         public static CooldownRings Create(RectTransform canvas)
         {
             var root = UiKit.Fill(UiKit.Rect(canvas, "CooldownVisualization"));
             var c = root.gameObject.AddComponent<CooldownRings>();
             // Godot draws harpoon and drone on top of the (bigger) AK47 and buoy rings
+            c._ak47 = c.MakeRing(root, "ak47_ring", 12f, 5f, new Vector2(100, 160));
             c._buoy = c.MakeRing(root, "buoy_ring", 12f, 5f, new Vector2(0, 50));
             c._harpoon = c.MakeRing(root, "harpoon_ring", 8f, 4f, new Vector2(100, 160));
             c._drone = c.MakeRing(root, "drone_ring", 8f, 4f, new Vector2(0, 50));
@@ -86,6 +87,7 @@ namespace TooFishy
 
             Show(_harpoon, true, 1f - player.HarpoonCdRemaining / PlayerController.HarpoonCooldown,
                 gs.GetUpgradeLevel(Upgrade.HarpoonRotation) > 0 ? HarpoonBright : Ready);
+            Show(_ak47, gs.GetUpgradeLevel(Upgrade.Ak47) > 0, Ak47.ReloadProgress, Ready);
             Show(_buoy, gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0, 1f - player.BuoyCdRemaining / PlayerController.BuoyCooldown, Ready);
             Show(_drone, gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0, 1f - player.DroneCdRemaining / PlayerController.DroneCooldown, Ready);
         }

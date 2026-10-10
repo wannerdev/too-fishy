@@ -52,6 +52,7 @@ namespace TooFishy
                 if (item.Weight >= newFish.Weight)
                 {
                     Items.Remove(item);
+                    Release(item);
                     Items.Add(newFish);
                     UpdateTotals();
                     _state?.NotifyInventoryUpdated();
@@ -86,12 +87,24 @@ namespace TooFishy
                 return false;
 
             foreach (var item in toRemove)
+            {
                 Items.Remove(item);
+                Release(item);
+            }
 
             Items.Add(newFish);
             UpdateTotals();
             _state?.NotifyInventoryUpdated();
             return true;
+        }
+
+        /// <summary>inventory.gd release_fish(): a replaced fish swims off near the submarine.</summary>
+        static void Release(InventoryItem item)
+        {
+            var player = GameState.Instance?.PlayerTransform;
+            if (player == null) return;
+            var pos = player.position + new Vector3(Random.Range(-1.5f, 1.5f), Random.Range(-1f, 1f), 0f);
+            FishBehaviour.SpawnReleased(item, pos, player.parent);
         }
 
         public int SellItems()

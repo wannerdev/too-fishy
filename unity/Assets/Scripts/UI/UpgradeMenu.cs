@@ -122,12 +122,12 @@ namespace TooFishy
             for (int i = _columns.childCount - 1; i >= 0; i--) Destroy(_columns.GetChild(i).gameObject);
             _cards.Clear();
 
-            // upgrades.gd: AK47 only after meeting the boss, the 2nd gun only after the first.
-            // The guns are not ported yet, so they stay hidden.
+            // upgrades.gd: AK47 only after meeting the boss, the 2nd gun only after the first
             var equipment = new List<Upgrade>();
             foreach (var u in Equipment)
             {
-                if (u == Upgrade.Ak47 || u == Upgrade.DualAk47) continue;
+                if (u == Upgrade.Ak47 && (gs == null || !gs.BossEncountered)) continue;
+                if (u == Upgrade.DualAk47 && (gs == null || gs.GetUpgradeLevel(Upgrade.Ak47) == 0)) continue;
                 equipment.Add(u);
             }
 
@@ -135,7 +135,7 @@ namespace TooFishy
             Column("EQUIPMENT", equipment, 0, colWidth);
             Column("PERFORMANCE", new List<Upgrade>(Performance), 1, colWidth);
             Column("UTILITY", new List<Upgrade>(Utility), 2, colWidth);
-            _builtLayoutKey = gs != null && gs.BossEncountered ? 1 : 0;
+            _builtLayoutKey = LayoutKey(gs);
             _lastStateKey = int.MinValue;
         }
 
@@ -220,6 +220,9 @@ namespace TooFishy
             }
         }
 
+        static int LayoutKey(GameState gs) =>
+            gs == null ? 0 : (gs.BossEncountered ? 1 : 0) + (gs.GetUpgradeLevel(Upgrade.Ak47) > 0 ? 2 : 0);
+
         /// <summary>Esc while docked: close_upgrade_menu(). Returns true when Esc was used up.</summary>
         public bool HandleEscape()
         {
@@ -257,8 +260,7 @@ namespace TooFishy
                 return;
             }
 
-            int layoutKey = gs.BossEncountered ? 1 : 0;
-            if (_cards.Count == 0 || layoutKey != _builtLayoutKey) BuildColumns();
+            if (_cards.Count == 0 || LayoutKey(gs) != _builtLayoutKey) BuildColumns();
             if (!_wasVisible)
             {
                 _wasVisible = true;
