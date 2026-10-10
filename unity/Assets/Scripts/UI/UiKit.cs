@@ -172,6 +172,9 @@ namespace TooFishy
             {
                 float d = RoundedRectDistance(x + 0.5f - shadow, y + 0.5f - shadow, size - 2 * shadow, size - 2 * shadow, radius);
                 float a = 1f - Mathf.Clamp01((d + shadow) / (2f * shadow));
+                // Godot draws the shadow under the panel; as a uGUI child it is drawn on top, so
+                // leave the panel area itself empty.
+                a *= Mathf.Clamp01(d + 1f);
                 px[y * size + x] = new Color(1f, 1f, 1f, a * a);
             }
             tex.SetPixels(px);

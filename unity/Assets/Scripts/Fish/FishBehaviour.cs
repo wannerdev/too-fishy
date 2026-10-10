@@ -39,7 +39,7 @@ namespace TooFishy
         static int _nextId = 1;
         static readonly int AnimTimeId = Shader.PropertyToID("_AnimTime");
 
-        public static FishBehaviour Spawn(Vector3 pos, FishType type, Stage stage, Transform parent, int home = 0)
+        public static FishBehaviour Spawn(Vector3 pos, FishType type, Stage stage, Transform parent, int home = 0, bool? shinyOverride = null)
         {
             var stats = FishConfig.Stats[type];
             var section = FishConfig.Sections[stage];
@@ -57,7 +57,7 @@ namespace TooFishy
             var fish = go.AddComponent<FishBehaviour>();
             fish.BuildVisual(type);
 
-            bool shiny = Random.value < section.ShinyRate;
+            bool shiny = shinyOverride ?? Random.value < section.ShinyRate;
             // fish.gd: `weight` is an int export, so the clamped random weight is truncated.
             int weight = (int)Mathf.Clamp(
                 Random.Range(stats.WeightMin, stats.WeightMax) * section.WeightMultiplier,
@@ -87,11 +87,9 @@ namespace TooFishy
         /// <summary>inventory.gd release_fish(): put a caught fish back, scattering away from the sub.</summary>
         public static FishBehaviour SpawnReleased(InventoryItem item, Vector3 pos, Transform parent, bool scatter = true)
         {
-            var fish = Spawn(pos, item.Type, Stage.Surface, parent);
+            var fish = Spawn(pos, item.Type, Stage.Surface, parent, 0, item.Shiny);
             fish.Weight = item.Weight;
             fish.Price = item.Price;
-            if (item.Shiny && !fish.IsShiny) fish.AddShinyParticles();
-            fish.IsShiny = item.Shiny;
             var player = GameState.Instance?.PlayerTransform;
             if (scatter && player != null) fish.Scatter(player);
             return fish;
@@ -264,7 +262,7 @@ namespace TooFishy
 
         bool _collided;
         Collider _collider;
-        static readonly Collider[] Overlaps = new Collider[16];
+        static readonly Collider[] Overlaps = new Collider[64];
         const int CollisionMask = (1 << Layers.Default) | (1 << Layers.World) | (1 << Layers.Fish) | (1 << Layers.Player);
 
         /// <summary>

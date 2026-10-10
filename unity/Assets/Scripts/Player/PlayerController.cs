@@ -141,9 +141,15 @@ namespace TooFishy
 
             // Lock Z
             var p = transform.position;
-            p.z = PlayerZ;
-            if (p.y > 0.5f) p.y = 0.5f;
-            transform.position = p;
+            var locked = new Vector3(p.x, Mathf.Min(p.y, 0.5f), PlayerZ);
+            if ((locked - p).sqrMagnitude > 1e-8f)
+            {
+                // auto sync transforms is off: a moved CharacterController must be re-enabled
+                // or its next Move() restores the old position
+                _cc.enabled = false;
+                transform.position = locked;
+                _cc.enabled = true;
+            }
 
             RockingMotion(dt, move);
         }

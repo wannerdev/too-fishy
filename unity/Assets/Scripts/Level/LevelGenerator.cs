@@ -296,6 +296,8 @@ namespace TooFishy
             foreach (var kv in _sections)
                 if (kv.Value.Root != null) Destroy(kv.Value.Root);
             _sections.Clear();
+            foreach (var fish in GetComponentsInChildren<FishBehaviour>())
+                Destroy(fish.gameObject);
         }
 
         /// <summary>level.gd _on_barrier_scatter_area_entered()</summary>
@@ -446,7 +448,9 @@ namespace TooFishy
                     Random.Range(SpawnerA.x, SpawnerB.x),
                     section.Y + Random.Range(SpawnerB.y, SpawnerA.y),
                     FishBehaviour.FishZ);
-                FishBehaviour.Spawn(pos, type, section.Type, section.Root.transform, home);
+                // Not under the section: streaming removes far sections, and a fish pushed up from the
+                // deep must survive that (Godot never frees sections).
+                FishBehaviour.Spawn(pos, type, section.Type, transform, home);
 
                 var spawnStats = FishConfig.Stats[type];
                 if (spawnStats.SpawnCooldownSec > 0f)

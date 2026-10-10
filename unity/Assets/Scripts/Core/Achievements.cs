@@ -33,6 +33,7 @@ namespace TooFishy
         /// <summary>achievement_system.gd _on_inventory_updated(): every fish in the inventory counts as caught.</summary>
         public static void OnInventoryUpdated(Inventory inventory)
         {
+            if (GameState.Instance != null && GameState.Instance.IsIntro()) return;
             bool changed = false;
             foreach (var item in inventory.Items)
             {
@@ -46,6 +47,7 @@ namespace TooFishy
         /// <summary>fish.gd record_surface_achievement(): a fish swam up to the surface.</summary>
         public static void RecordSurface(FishType type)
         {
+            if (GameState.Instance != null && GameState.Instance.IsIntro()) return;
             var rec = Fish[type];
             if (rec.Surface) return;
             rec.Surface = true;

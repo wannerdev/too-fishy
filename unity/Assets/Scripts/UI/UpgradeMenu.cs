@@ -228,11 +228,9 @@ namespace TooFishy
         {
             var gs = GameState.Instance;
             if (gs == null || !gs.IsDocked || gs.IsIntro()) return false;
-            if (!_manOverride)
-            {
-                _manOverride = true;
-                gs.IsDocked = false;
-            }
+            // upgrades.gd also clears is_docked, but the player sets it again every frame;
+            // the override alone keeps the menu closed until the submarine leaves the dock.
+            _manOverride = true;
             // pause_menu.gd ignores Esc while docked either way
             return true;
         }
