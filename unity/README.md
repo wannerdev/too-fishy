@@ -6,14 +6,14 @@ The original Godot 4 project remains at the repository root. This folder is a se
 
 ## Requirements
 
-- **Unity 2022.3 LTS** (or Unity 6) with the built-in render pipeline
-- Modules: Windows/Mac/Linux Build Support as needed
+- **Unity 6.3 LTS (6000.3.26f1)** with the built-in render pipeline
+- Modules (Unity Hub): Android Build Support (with OpenJDK and Android SDK & NDK Tools) and Web Build Support as needed
 
 ## Open & Play
 
-1. Install Unity Hub and Unity 2022.3 LTS (or let Hub download the version in `ProjectSettings/ProjectVersion.txt`).
+1. Install Unity Hub and Unity 6000.3.26f1 (Hub offers the version in `ProjectSettings/ProjectVersion.txt`).
 2. **Add** → select this `unity/` folder.
-3. Open the project (first import may take a minute).
+3. Open the project. The first import copies the Godot art (see Notes) and takes a few minutes.
 4. Open `Assets/Scenes/Main.unity`.
 5. Press **Play**.
 

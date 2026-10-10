@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -132,15 +133,15 @@ namespace TooFishy.EditorTools
 
         static void ConfigureAndroidPlayerSettings(int? versionCode)
         {
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, BundleId);
+            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, BundleId);
             if (versionCode.HasValue) PlayerSettings.Android.bundleVersionCode = versionCode.Value;
             if (PlayerSettings.Android.bundleVersionCode < 1) PlayerSettings.Android.bundleVersionCode = 1;
 
             // Google Play requires 64-bit; IL2CPP is the only backend that supports ARM64.
-            PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
+            PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.ARMv7;
-            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;
-            // Auto = the highest SDK installed with the editor (35 with 2022.3.50f1)
+            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
+            // Auto = the highest SDK installed with the editor
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
             PlayerSettings.Android.forceInternetPermission = false;
             PlayerSettings.Android.forceSDCardPermission = false;
