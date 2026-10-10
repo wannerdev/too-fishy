@@ -18,7 +18,7 @@ namespace TooFishy
 
         // Written by TouchControls
         public static Vector2 VirtualMove;
-        static bool _virtualFire, _virtualBuoy, _virtualDrone, _virtualPickaxe, _virtualShop, _virtualPause;
+        static bool _virtualFire, _virtualBuoy, _virtualDrone, _virtualPickaxe, _virtualInventory, _virtualPause;
         static Vector2 _virtualAim;
         static bool _hasVirtualAim;
 
@@ -32,7 +32,7 @@ namespace TooFishy
         public static void PressBuoy() => _virtualBuoy = true;
         public static void PressDrone() => _virtualDrone = true;
         public static void PressPickaxe() => _virtualPickaxe = true;
-        public static void PressShop() => _virtualShop = true;
+        public static void PressInventory() => _virtualInventory = true;
         public static void PressPause() => _virtualPause = true;
 
         /// <summary>-1..1. Screen-right is positive.</summary>
@@ -83,7 +83,7 @@ namespace TooFishy
         public static bool ConsumeBuoy() => Consume(ref _virtualBuoy) || Input.GetKeyDown(KeyCode.B);
         public static bool ConsumeDrone() => Consume(ref _virtualDrone) || Input.GetKeyDown(KeyCode.Q);
         public static bool ConsumePickaxe() => Consume(ref _virtualPickaxe) || Input.GetKeyDown(KeyCode.Space);
-        public static bool ConsumeShop() => Consume(ref _virtualShop) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Tab);
+        public static bool ConsumeInventory() => Consume(ref _virtualInventory) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Tab);
         public static bool ConsumePause() => Consume(ref _virtualPause) || Input.GetKeyDown(KeyCode.Escape);
 
         static bool Consume(ref bool flag)

@@ -28,7 +28,7 @@ namespace TooFishy.EditorTools
         const string GeneratedDir = OutRoot + "/Generated";
         const string StampFile = OutRoot + "/.synced";
         // Bump when the file list or a material definition changes.
-        const string Version = "1";
+        const string Version = "2";
 
         /// <summary>Paths relative to the repository root, copied verbatim under <see cref="OutRoot"/>.</summary>
         static readonly string[] Files =
@@ -488,7 +488,7 @@ namespace TooFishy.EditorTools
                 importer.mipmapEnabled = !file.StartsWith("AllSkyFree");
             }
             if (file == "UI_element_background.png")
-                importer.spriteBorder = new Vector4(40, 40, 40, 40);
+                importer.spriteBorder = new Vector4(25, 25, 25, 25); // main_scene.tres texture_margin 25
 
             importer.maxTextureSize = 2048;
             var android = importer.GetPlatformTextureSettings("Android");

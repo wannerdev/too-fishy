@@ -53,7 +53,8 @@ Assets/
     Items/                   # Harpoon projectile
     Level/                   # Procedural sections, barriers, lava
     Boss/                    # Blobfish boss
-    UI/                      # HUD, upgrades, death screen, popups
+    UI/                      # Ports of the Godot UI: HUD, cargo panel, achievements, shop, inventory,
+                             # pause/settings/save menus, story dialogs, death screen, touch controls
 ```
 
 ## Notes
@@ -65,7 +66,8 @@ Assets/
   stay inside the too-fishy repository.
 - Coordinates: Godot (x, y, z) is Unity (x, y, −z). Scene transforms are copied verbatim from the
   `.tscn` files through `GodotSpace.Apply`, which also handles the X mirror of Unity's model importer.
-- AK-47 / dual guns and full intro-mission cinematic are stubbed lighter than the Godot version; core dive → catch → sell → upgrade → boss loop is fully playable.
+- UI text uses Open Sans SemiBold (Godot's default font, `Assets/Resources/Fonts`, SIL OFL).
+- Not ported yet: AK-47 / dual guns, the boss's attack phases and mind-control zones, the intro mission, pickaxe swing animation, drone flight, ambient particles.
 - Gravity is disabled in Physics settings (underwater 2.5D movement).
 
 ## Original

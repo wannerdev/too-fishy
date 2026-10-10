@@ -83,6 +83,19 @@ namespace TooFishy
             return fish;
         }
 
+        /// <summary>inventory.gd release_fish(): put a caught fish back, scattering away from the sub.</summary>
+        public static FishBehaviour SpawnReleased(InventoryItem item, Vector3 pos, Transform parent)
+        {
+            var fish = Spawn(pos, item.Type, Stage.Surface, parent);
+            fish.Weight = item.Weight;
+            fish.Price = item.Price;
+            if (item.Shiny && !fish.IsShiny) fish.AddShinyParticles();
+            fish.IsShiny = item.Shiny;
+            var player = GameState.Instance?.PlayerTransform;
+            if (player != null) fish.Scatter(player);
+            return fish;
+        }
+
         /// <summary>Model, material and collision shape from the Godot fish scene of each type.</summary>
         void BuildVisual(FishType type)
         {
@@ -193,6 +206,7 @@ namespace TooFishy
             var p = transform.position;
             if (p.y >= -0.5f)
             {
+                Achievements.RecordSurface(Type); // fish.gd record_surface_achievement()
                 Destroy(gameObject);
                 return;
             }

@@ -9,6 +9,8 @@ namespace TooFishy
         public int Id;
         public bool Shiny;
 
+        public InventoryItem() { }
+
         public InventoryItem(FishType type, float weight, int price, int id, bool shiny)
         {
             Type = type;

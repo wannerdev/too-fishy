@@ -1,6 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
 namespace TooFishy
 {
@@ -18,8 +16,10 @@ namespace TooFishy
             // Phones and WebGL default to 30 fps otherwise
             Application.targetFrameRate = 60;
 
-            // Ensure tags exist at runtime for built player (editor has TagManager)
-            EnsureTags();
+            Settings.Load();
+            Dialogs.Reset();
+            Achievements.Reset();
+            BossController.ResetFlags();
 
             var gsGo = new GameObject("GameState");
             var gs = gsGo.AddComponent<GameState>();
@@ -48,12 +48,6 @@ namespace TooFishy
             // Boss watcher
             var watcher = new GameObject("BossWatcher").AddComponent<BossWatcher>();
             watcher.WorldRoot = world;
-        }
-
-        void EnsureTags()
-        {
-            // Tags must be defined in TagManager; runtime Create doesn't add them.
-            // Fish/Boss detection also uses GetComponent fallbacks.
         }
 
         void BuildLighting()
@@ -160,24 +154,7 @@ namespace TooFishy
             return player;
         }
 
-        void BuildUI()
-        {
-            var canvasGo = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            var canvas = canvasGo.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = canvasGo.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-
-            if (FindFirstObjectByType<EventSystem>() == null)
-            {
-                new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-            }
-
-            GameHUD.Create(canvasGo.transform);
-            if (GameInput.TouchMode)
-                TouchControls.Create(canvasGo.transform);
-        }
+        void BuildUI() => GameUI.Create();
     }
 
     /// <summary>Shows upgrade-gated parts of the submarine (player.gd process_dock).</summary>

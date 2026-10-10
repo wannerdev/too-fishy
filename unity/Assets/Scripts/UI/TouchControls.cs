@@ -5,213 +5,139 @@ using UnityEngine.UI;
 namespace TooFishy
 {
     /// <summary>
-    /// On-screen controls for phones and touch browsers, built at runtime like the rest of the UI:
-    /// a floating joystick on the left half, an aim/fire pad on the right half (tap where you want
-    /// the harpoon to go), and buttons for shop, buoy, drone, pickaxe and pause that only appear
-    /// when the matching upgrade is owned.
+    /// Port of scripts/touch_controls.gd (phones and touch browsers): a floating joystick that
+    /// appears wherever a touch starts (grey base r 100, knob r 50) and the red 150 px shoot
+    /// button with a white cross in the bottom-right corner.
+    ///
+    /// Godot reaches the inventory, buoy, drone, pickaxe and pause only through keys, which a
+    /// phone does not have, so small buttons for those are added along the top edge (the
+    /// upgrade-bound ones only once the upgrade is owned).
     /// </summary>
     public class TouchControls : MonoBehaviour
     {
-        const float JoystickRadius = 110f;
+        const float JoystickRadius = 100f;
 
-        RectTransform _joyBase, _joyKnob;
-        Button _shopBtn, _buoyBtn, _droneBtn, _pickaxeBtn, _pauseBtn;
-        Text _pauseLabel;
+        RectTransform _root, _joyBase, _joyKnob;
+        Image _shoot;
+        Button _buoyBtn, _droneBtn, _pickaxeBtn;
 
         public static TouchControls Create(Transform canvasRoot)
         {
-            var go = new GameObject("TouchControls", typeof(RectTransform));
-            go.transform.SetParent(canvasRoot, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            var tc = go.AddComponent<TouchControls>();
-            tc.Build(rt);
+            var root = UiKit.Fill(UiKit.Rect(canvasRoot, "TouchControls"));
+            var tc = root.gameObject.AddComponent<TouchControls>();
+            tc._root = root;
+            tc.Build();
             return tc;
         }
 
-        void Build(RectTransform root)
+        void Build()
         {
-            // Left half: joystick pad
-            var joyPad = MakePad(root, "JoystickPad", new Vector2(0f, 0f), new Vector2(0.5f, 0.8f));
-            joyPad.gameObject.AddComponent<JoystickPad>().Owner = this;
+            // Everything outside the buttons starts the joystick
+            var pad = UiKit.ColorRect(_root, "JoystickPad", new Color(0, 0, 0, 0));
+            pad.raycastTarget = true;
+            UiKit.Fill(pad.rectTransform);
+            pad.gameObject.AddComponent<JoystickPad>().Owner = this;
 
-            _joyBase = MakeCircle(root, "JoyBase", JoystickRadius * 2f, new Color(1f, 1f, 1f, 0.12f));
-            _joyKnob = MakeCircle(root, "JoyKnob", JoystickRadius * 0.9f, new Color(1f, 1f, 1f, 0.35f));
-            _joyBase.gameObject.SetActive(false);
-            _joyKnob.gameObject.SetActive(false);
+            _joyBase = UiKit.Picture(_root, "JoyBase", UiKit.Circle, false).rectTransform;
+            _joyBase.GetComponent<Image>().color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+            _joyBase.sizeDelta = Vector2.one * JoystickRadius * 2f;
+            _joyKnob = UiKit.Picture(_root, "JoyKnob", UiKit.Circle, false).rectTransform;
+            _joyKnob.GetComponent<Image>().color = new Color(0.7f, 0.7f, 0.7f, 0.7f);
+            _joyKnob.sizeDelta = Vector2.one * 100f;
+            foreach (var rt in new[] { _joyBase, _joyKnob })
+            {
+                rt.anchorMin = rt.anchorMax = Vector2.zero;
+                rt.gameObject.SetActive(false);
+            }
 
-            // Right half: aim / fire pad
-            var firePad = MakePad(root, "FirePad", new Vector2(0.5f, 0f), new Vector2(1f, 0.8f));
-            firePad.gameObject.AddComponent<FirePad>();
+            // Shoot button: 150×150, 20 px from the bottom-right corner
+            _shoot = UiKit.Picture(_root, "ShootButton", UiKit.Circle, false);
+            _shoot.raycastTarget = true;
+            _shoot.color = new Color(1f, 0.3f, 0.3f, 0.7f);
+            UiKit.Place(_shoot.rectTransform, 1, 1, 1, 1, -170, -170, -20, -20);
+            var h = UiKit.ColorRect(_shoot.transform, "CrossH", Color.white).rectTransform;
+            UiKit.Centered(h, 60, 5);
+            var v = UiKit.ColorRect(_shoot.transform, "CrossV", Color.white).rectTransform;
+            UiKit.Centered(v, 5, 60);
+            _shoot.gameObject.AddComponent<ShootButton>().Owner = this;
 
-            // Action buttons along the bottom right
-            _pauseBtn = MakeButton(root, "PauseBtn", "II", new Vector2(1f, 1f), new Vector2(-70f, -70f), () => GameInput.PressPause());
-            _pauseLabel = _pauseBtn.GetComponentInChildren<Text>();
-            _shopBtn = MakeButton(root, "ShopBtn", "SHOP", new Vector2(1f, 0f), new Vector2(-90f, 90f), () => GameInput.PressShop());
-            _buoyBtn = MakeButton(root, "BuoyBtn", "BUOY", new Vector2(1f, 0f), new Vector2(-230f, 90f), () => GameInput.PressBuoy());
-            _droneBtn = MakeButton(root, "DroneBtn", "SELL", new Vector2(1f, 0f), new Vector2(-370f, 90f), () => GameInput.PressDrone());
-            _pickaxeBtn = MakeButton(root, "PickaxeBtn", "DIG", new Vector2(1f, 0f), new Vector2(-510f, 90f), () => GameInput.PressPickaxe());
+            // Extra buttons (not in Godot, see class comment)
+            float x = -20f;
+            SmallButton("PauseBtn", "II", ref x, GameInput.PressPause);
+            SmallButton("InventoryBtn", "INV", ref x, GameInput.PressInventory);
+            _buoyBtn = SmallButton("BuoyBtn", "BUOY", ref x, GameInput.PressBuoy);
+            _droneBtn = SmallButton("DroneBtn", "SELL", ref x, GameInput.PressDrone);
+            _pickaxeBtn = SmallButton("PickaxeBtn", "DIG", ref x, GameInput.PressPickaxe);
+        }
+
+        Button SmallButton(string name, string label, ref float right, UnityEngine.Events.UnityAction onClick)
+        {
+            var b = UiKit.Button(_root, name, label, 16, UiKit.MenuButton, onClick);
+            UiKit.Place(b.GetComponent<RectTransform>(), 1, 0, 1, 0, right - 80, 540, right, 590);
+            right -= 90f;
+            return b;
         }
 
         void Update()
         {
             var gs = GameState.Instance;
             if (gs == null) return;
-            _shopBtn.gameObject.SetActive(gs.IsDocked && !gs.DeathScreen);
-            _buoyBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0 && !gs.DeathScreen);
-            _droneBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0 && !gs.DeathScreen);
-            _pickaxeBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0 && !gs.DeathScreen);
-            _pauseBtn.gameObject.SetActive(!gs.DeathScreen);
-            if (_pauseLabel != null) _pauseLabel.text = gs.Paused ? ">" : "II";
+            _buoyBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0);
+            _droneBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0);
+            _pickaxeBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0);
         }
 
-        // ---- joystick callbacks ----
-
-        internal void JoystickDown(Vector2 screenPos)
+        Vector2 ToLocal(PointerEventData e)
         {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(_root, e.position, e.pressEventCamera, out var local);
+            return local - _root.rect.min; // bottom-left origin
+        }
+
+        void JoystickDown(PointerEventData e)
+        {
+            var p = ToLocal(e);
+            _joyBase.anchoredPosition = p;
+            _joyKnob.anchoredPosition = p;
             _joyBase.gameObject.SetActive(true);
             _joyKnob.gameObject.SetActive(true);
-            _joyBase.position = screenPos;
-            _joyKnob.position = screenPos;
             GameInput.VirtualMove = Vector2.zero;
         }
 
-        internal void JoystickDrag(Vector2 screenPos)
+        void JoystickDrag(PointerEventData e)
         {
-            Vector2 center = _joyBase.position;
-            Vector2 delta = screenPos - center;
-            float scale = _joyBase.lossyScale.x <= 0f ? 1f : _joyBase.lossyScale.x;
-            float maxPx = JoystickRadius * scale;
-            if (delta.magnitude > maxPx) delta = delta.normalized * maxPx;
-            _joyKnob.position = center + delta;
-            var move = delta / maxPx;
-            // Small dead zone, then full range
-            GameInput.VirtualMove = move.magnitude < 0.12f ? Vector2.zero : move;
+            Vector2 origin = _joyBase.anchoredPosition;
+            Vector2 d = Vector2.ClampMagnitude(ToLocal(e) - origin, JoystickRadius);
+            _joyKnob.anchoredPosition = origin + d;
+            GameInput.VirtualMove = d / JoystickRadius;
         }
 
-        internal void JoystickUp()
+        void JoystickUp()
         {
             _joyBase.gameObject.SetActive(false);
             _joyKnob.gameObject.SetActive(false);
             GameInput.VirtualMove = Vector2.zero;
         }
 
-        // ---- UI construction helpers ----
-
-        static RectTransform MakePad(RectTransform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
+        class JoystickPad : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
         {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(parent, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = anchorMin;
-            rt.anchorMax = anchorMax;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            var img = go.GetComponent<Image>();
-            img.color = new Color(0f, 0f, 0f, 0f); // invisible but raycastable
-            img.raycastTarget = true;
-            return rt;
+            public TouchControls Owner;
+            public void OnPointerDown(PointerEventData e) => Owner.JoystickDown(e);
+            public void OnDrag(PointerEventData e) => Owner.JoystickDrag(e);
+            public void OnPointerUp(PointerEventData e) => Owner.JoystickUp();
         }
 
-        static RectTransform MakeCircle(RectTransform parent, string name, float size, Color color)
+        class ShootButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
         {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(parent, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(size, size);
-            var img = go.GetComponent<Image>();
-            img.sprite = CircleSprite();
-            img.color = color;
-            img.raycastTarget = false;
-            return rt;
-        }
+            public TouchControls Owner;
 
-        static Button MakeButton(RectTransform parent, string name, string label, Vector2 anchor, Vector2 pos, UnityEngine.Events.UnityAction onClick)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
-            go.transform.SetParent(parent, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = anchor;
-            rt.pivot = anchor;
-            rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(120f, 120f);
-            var img = go.GetComponent<Image>();
-            img.sprite = CircleSprite();
-            img.color = new Color(0.1f, 0.25f, 0.4f, 0.75f);
-
-            var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
-            textGo.transform.SetParent(go.transform, false);
-            var trt = textGo.GetComponent<RectTransform>();
-            trt.anchorMin = Vector2.zero;
-            trt.anchorMax = Vector2.one;
-            trt.offsetMin = trt.offsetMax = Vector2.zero;
-            var text = textGo.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.fontSize = 28;
-            text.fontStyle = FontStyle.Bold;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            text.text = label;
-            text.raycastTarget = false;
-
-            var btn = go.GetComponent<Button>();
-            btn.targetGraphic = img;
-            btn.onClick.AddListener(onClick);
-            return btn;
-        }
-
-        static Sprite _circle;
-        static Sprite CircleSprite()
-        {
-            if (_circle != null) return _circle;
-            const int size = 64;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            float r = size / 2f - 1f;
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
+            public void OnPointerDown(PointerEventData e)
             {
-                float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(size / 2f, size / 2f));
-                float a = Mathf.Clamp01(r - d + 0.5f);
-                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                Owner._shoot.color = new Color(1f, 0.5f, 0.5f, 0.8f);
+                // Godot aims a rotatable harpoon at the touch position, i.e. at this button
+                GameInput.PressFire(e.position);
             }
-            tex.Apply();
-            _circle = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
-            return _circle;
+
+            public void OnPointerUp(PointerEventData e) => Owner._shoot.color = new Color(1f, 0.3f, 0.3f, 0.7f);
         }
-    }
-
-    /// <summary>Receives the drag on the left half of the screen and feeds the joystick.</summary>
-    public class JoystickPad : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
-    {
-        public TouchControls Owner;
-        int _pointerId = int.MinValue;
-
-        public void OnPointerDown(PointerEventData e)
-        {
-            if (_pointerId != int.MinValue) return;
-            _pointerId = e.pointerId;
-            Owner.JoystickDown(e.position);
-        }
-
-        public void OnDrag(PointerEventData e)
-        {
-            if (e.pointerId == _pointerId) Owner.JoystickDrag(e.position);
-        }
-
-        public void OnPointerUp(PointerEventData e)
-        {
-            if (e.pointerId != _pointerId) return;
-            _pointerId = int.MinValue;
-            Owner.JoystickUp();
-        }
-    }
-
-    /// <summary>Tap anywhere on the right half to fire the harpoon toward the tap.</summary>
-    public class FirePad : MonoBehaviour, IPointerDownHandler
-    {
-        public void OnPointerDown(PointerEventData e) => GameInput.PressFire(e.position);
     }
 }

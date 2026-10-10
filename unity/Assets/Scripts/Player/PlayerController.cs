@@ -185,19 +185,27 @@ namespace TooFishy
                 _buoyCd = BuoyCooldown;
             }
 
-            if (GameInput.ConsumeDrone() && gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0 && _droneCd <= 0f)
-            {
-                int sold = gs.Inventory.SellItems();
-                if (sold > 0)
-                {
-                    SoundPlayer.Play("coins");
-                    PopupText.Show($"+${sold} (drone)", transform.position + Vector3.up);
-                }
-                _droneCd = DroneCooldown;
-            }
+            if (GameInput.ConsumeDrone() && !gs.IsDocked)
+                ActivateSellingDrone();
 
             if (GameInput.ConsumePickaxe() && gs.GetUpgradeLevel(Upgrade.PickaxeUnlocked) > 0)
                 SwingPickaxe();
+        }
+
+        /// <summary>player.gd activate_selling_drone() (Q / inventory menu button).</summary>
+        public void ActivateSellingDrone()
+        {
+            var gs = GameState.Instance;
+            if (gs == null || gs.GetUpgradeLevel(Upgrade.DroneSelling) <= 0 || gs.IsIntro()) return;
+            if (_droneCd > 0f || gs.Inventory.Items.Count == 0) return;
+            int sold = gs.Inventory.SellItems();
+            _droneCd = DroneCooldown;
+            Achievements.RecordDroneLift();
+            if (sold > 0)
+            {
+                SoundPlayer.Play("coins");
+                PopupText.Show("Drone sold all fish for $" + sold, transform.position + Vector3.up, Color.green);
+            }
         }
 
         void ShootHarpoon(Vector2 aimScreenPos)
@@ -280,6 +288,7 @@ namespace TooFishy
             AddTrauma(1f);
             GameState.Instance.Damage(damage);
             SoundPlayer.Play("ughhh");
+            DamageEffects.Instance?.ShowDamage();
             _canBeHurt = false;
             Invoke(nameof(ResetHurt), 1f);
         }

@@ -42,6 +42,8 @@ namespace TooFishy
                 _source.playOnAwake = false;
                 _source.spatialBlend = 0f;
             }
+            // main_scene.tscn: SoundPlayer/player volume_db = -11.876, then the SFX setting
+            _source.volume = Mathf.Pow(10f, -11.876f / 20f) * Settings.SfxVolume;
             _source.clip = clip;
             _source.Play();
         }
@@ -62,17 +64,15 @@ namespace TooFishy
         bool _crossfading;
         float _fadeTimer;
 
-        public static bool Muted;
-
         void Start()
         {
             _player1 = NewSource();
             _player2 = NewSource();
             _currentTrack = "music/surface.mp3";
             _player1.clip = GodotAssets.Audio(_currentTrack);
-            _player1.volume = DbToLinear(BaseVolumeDb);
+            _player1.volume = DbToLinear(BaseVolumeDb) * Settings.MusicVolume;
             _player2.volume = 0f;
-            if (!Muted && _player1.clip != null) _player1.Play();
+            if (_player1.clip != null) _player1.Play();
         }
 
         AudioSource NewSource()
@@ -87,14 +87,14 @@ namespace TooFishy
         void Update()
         {
             if (_player1 == null) return;
-            _player1.mute = _player2.mute = Muted;
+            float music = Settings.MusicVolume;
 
             if (_crossfading)
             {
-                _fadeTimer += Time.deltaTime;
+                _fadeTimer += Time.unscaledDeltaTime;
                 float t = Mathf.Min(_fadeTimer / FadeDuration, 1f);
-                _player1.volume = DbToLinear(Mathf.Lerp(BaseVolumeDb, SilentDb, t));
-                _player2.volume = DbToLinear(Mathf.Lerp(SilentDb, BaseVolumeDb, t));
+                _player1.volume = DbToLinear(Mathf.Lerp(BaseVolumeDb, SilentDb, t)) * music;
+                _player2.volume = DbToLinear(Mathf.Lerp(SilentDb, BaseVolumeDb, t)) * music;
                 if (_fadeTimer >= FadeDuration)
                 {
                     _crossfading = false;
@@ -119,8 +119,11 @@ namespace TooFishy
                 _fadeTimer = 0f;
                 _crossfading = true;
             }
-            else if (!_player1.isPlaying && _player1.clip != null)
-                _player1.Play();
+            else
+            {
+                _player1.volume = DbToLinear(BaseVolumeDb) * music;
+                if (!_player1.isPlaying && _player1.clip != null) _player1.Play();
+            }
         }
 
         static string TrackFor(Stage stage) => stage switch

@@ -107,6 +107,23 @@ namespace TooFishy
             return sold;
         }
 
+        /// <summary>Replaces the whole cargo (save game load).</summary>
+        public void SetItems(IEnumerable<InventoryItem> items)
+        {
+            Items = new List<InventoryItem>(items);
+            UpdateTotals();
+            _state?.NotifyInventoryUpdated();
+        }
+
+        /// <summary>Removes one fish (inventory menu "Release").</summary>
+        public bool Remove(InventoryItem item)
+        {
+            if (!Items.Remove(item)) return false;
+            UpdateTotals();
+            _state?.NotifyInventoryUpdated();
+            return true;
+        }
+
         public void Clear()
         {
             Items.Clear();

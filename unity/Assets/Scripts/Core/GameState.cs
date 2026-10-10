@@ -113,7 +113,11 @@ namespace TooFishy
                 StartNormalMode();
         }
 
-        public void NotifyInventoryUpdated() => OnInventoryUpdated?.Invoke();
+        public void NotifyInventoryUpdated()
+        {
+            Achievements.OnInventoryUpdated(Inventory);
+            OnInventoryUpdated?.Invoke();
+        }
 
         /// <summary>Godot's <c>snapped(depth, 100)</c>: rounds to the nearest hundred, halves away from zero.</summary>
         public static int SnapDepth(int depth) => Mathf.FloorToInt((depth + 50) / 100f) * 100;
@@ -235,6 +239,22 @@ namespace TooFishy
                 Player.Teleport(GodotSpace.Pos(-8f, 0f, 0.33f));
         }
 
+        /// <summary>save_system.gd load_game(): restores values but leaves the submarine where it is.</summary>
+        public void LoadState(int depth, int maxDepth, int money, float health, Dictionary<Upgrade, int> upgrades, IEnumerable<InventoryItem> items)
+        {
+            SetDepth(depth);
+            MaxDepthReached = maxDepth;
+            Money = money;
+            Health = health;
+            ResetUpgrades();
+            foreach (var kv in upgrades)
+                if (Upgrades.ContainsKey(kv.Key)) Upgrades[kv.Key] = kv.Value;
+            Inventory.SetItems(items);
+            OnMoneyChanged?.Invoke();
+            OnHealthChanged?.Invoke();
+            OnUpgradesChanged?.Invoke();
+        }
+
         public void ApplyPressureDamage(float dt)
         {
             if (GodMode || IsDocked) return;
@@ -261,27 +281,34 @@ namespace TooFishy
             OnHealthChanged?.Invoke();
         }
 
+        /// <summary>
+        /// player.gd trigger_regular_death(): the submarine is put back at the surface with full
+        /// health straight away and the death screen only waits for "Respawn".
+        /// </summary>
         public void Die()
         {
             if (DeathScreen) return;
             DeathScreen = true;
             Paused = true;
+            IsDocked = false;
 
             if (GetUpgradeLevel(Upgrade.InventorySave) < 1)
                 Inventory.Clear();
+            else if (PlayerTransform != null)
+                PopupText.Show("Inventory saved by insurance!", PlayerTransform.position + Vector3.up, Color.green);
 
+            Health = 100f;
+            if (Player != null)
+                Player.Teleport(GodotSpace.Pos(-8f, 0f, 0.33f));
+            OnHealthChanged?.Invoke();
             OnDeath?.Invoke();
         }
 
+        /// <summary>death_screen.gd: the Respawn button only clears the death screen.</summary>
         public void Respawn()
         {
             DeathScreen = false;
             Paused = false;
-            Health = 100f;
-            IsDocked = false;
-            Time.timeScale = 1f;
-            if (Player != null)
-                Player.Teleport(GodotSpace.Pos(-8f, 0f, 0.33f));
             OnRespawn?.Invoke();
         }
 
@@ -297,22 +324,23 @@ namespace TooFishy
             _ => stage.ToString()
         };
 
+        /// <summary>scripts/strings.gd upgradeNames</summary>
         public static string UpgradeName(Upgrade upgrade) => upgrade switch
         {
-            Upgrade.CargoSize => "Cargo Size",
+            Upgrade.CargoSize => "Increased Cargo Space",
             Upgrade.DepthResistance => "Depth Resistance",
-            Upgrade.PickaxeUnlocked => "Pickaxe",
-            Upgrade.VertSpeed => "Vertical Speed",
-            Upgrade.HorSpeed => "Horizontal Speed",
-            Upgrade.LampUnlocked => "Lamp",
-            Upgrade.Ak47 => "AK-47",
-            Upgrade.DualAk47 => "Dual AK-47",
-            Upgrade.Harpoon => "Harpoon Pierce",
-            Upgrade.HarpoonRotation => "Harpoon Aim",
+            Upgrade.PickaxeUnlocked => "Unlock Pickaxe",
+            Upgrade.VertSpeed => "Agility",
+            Upgrade.HorSpeed => "Thrust",
+            Upgrade.LampUnlocked => "Unlock Lamp",
+            Upgrade.Ak47 => "Unlock Gun",
+            Upgrade.DualAk47 => "Unlock 2nd Gun",
+            Upgrade.Harpoon => "Upgrade Harpoon",
+            Upgrade.HarpoonRotation => "Rotatable Harpoon",
             Upgrade.InventoryManagement => "Smart Inventory",
-            Upgrade.SurfaceBuoy => "Surface Buoy",
-            Upgrade.InventorySave => "Inventory Save",
-            Upgrade.DroneSelling => "Selling Drone",
+            Upgrade.SurfaceBuoy => "Emergency Buoy",
+            Upgrade.InventorySave => "Inventory Insurance",
+            Upgrade.DroneSelling => "Remote Selling Drone",
             _ => upgrade.ToString()
         };
     }

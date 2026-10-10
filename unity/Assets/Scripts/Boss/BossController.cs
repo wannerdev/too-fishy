@@ -6,6 +6,8 @@ namespace TooFishy
     {
         public static bool IsDefeated { get; private set; }
         public static bool HasSpawned { get; private set; }
+        /// <summary>The living boss, if any (boss health bar).</summary>
+        public static BossController Current { get; private set; }
 
         public int MaxHealth = 100;
         public int Health { get; private set; }
@@ -45,6 +47,9 @@ namespace TooFishy
             rb.useGravity = false;
 
             var boss = go.AddComponent<BossController>();
+            Current = boss;
+            // boss.gd setBossSpawned()
+            Dialogs.SetStage(DialogSection.BossIntro);
             boss.Health = boss.MaxHealth;
             boss._origin = go.transform.position;
         }
@@ -88,10 +93,15 @@ namespace TooFishy
             {
                 IsDefeated = true;
                 GameState.Instance.BossEncountered = true;
-                PopupText.Show("BOSS DEFEATED!", transform.position);
-                GameState.Instance.Money += 500;
+                // boss.gd defeat_boss()
+                Dialogs.SetStage(DialogSection.BossDefeated);
                 Destroy(gameObject);
             }
+        }
+
+        void OnDestroy()
+        {
+            if (Current == this) Current = null;
         }
 
         public static void ResetFlags()
