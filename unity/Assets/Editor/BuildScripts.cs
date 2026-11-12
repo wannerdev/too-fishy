@@ -28,12 +28,15 @@ namespace TooFishy.EditorTools
     public static class BuildScripts
     {
         const string DefaultApk = "build/android/too-fishy.apk";
+        const string DefaultAab = "build/android/too-fishy.aab";
+        /// <summary>Google Play: new apps and updates must target API 36 from 2026-08-31.</summary>
+        const int TargetApi = 36;
         const string DefaultWeb = "build/webgl";
         const string BundleId = "de.wannerdev.toofishy";
         static readonly string[] Scenes = { "Assets/Scenes/Main.unity" };
 
         [MenuItem("Too Fishy/Build Android APK")]
-        public static void BuildAndroidFromMenu() => BuildAndroidInternal(DefaultApk, null, false);
+        public static void BuildAndroidFromMenu() => BuildAndroidInternal(DefaultApk, null, false, false);
 
         [MenuItem("Too Fishy/Build WebGL")]
         public static void BuildWebGLFromMenu() => BuildWebGLInternal(DefaultWeb, false);
@@ -42,7 +45,15 @@ namespace TooFishy.EditorTools
         {
             string output = GetArg("-outputPath") ?? DefaultApk;
             int? versionCode = int.TryParse(GetArg("-versionCode"), out int parsed) ? parsed : null;
-            BuildAndroidInternal(output, versionCode, true);
+            BuildAndroidInternal(output, versionCode, true, false);
+        }
+
+        /// <summary>Release App Bundle for Google Play. Refuses to run without a release keystore in the environment.</summary>
+        public static void BuildAndroidBundle()
+        {
+            string output = GetArg("-outputPath") ?? DefaultAab;
+            int? versionCode = int.TryParse(GetArg("-versionCode"), out int parsed) ? parsed : null;
+            BuildAndroidInternal(output, versionCode, true, true);
         }
 
         public static void BuildWebGL()
@@ -50,12 +61,18 @@ namespace TooFishy.EditorTools
             BuildWebGLInternal(GetArg("-outputPath") ?? DefaultWeb, true);
         }
 
-        static void BuildAndroidInternal(string outputPath, int? versionCode, bool exitOnFailure)
+        static void BuildAndroidInternal(string outputPath, int? versionCode, bool exitOnFailure, bool bundle)
         {
             GodotAssetSync.TargetOverride = BuildTarget.Android;
             ApplySharedPlayerSettings();
             ConfigureAndroidPlayerSettings(versionCode);
-            ConfigureAndroidSigning();
+            EditorUserBuildSettings.buildAppBundle = bundle;
+            if (!ConfigureAndroidSigning() && bundle)
+            {
+                Debug.LogError("[Build] A Play bundle needs KEYSTORE_FILE, KEYSTORE_PASSWORD and KEY_ALIAS (and optionally KEY_PASSWORD) in the environment.");
+                if (exitOnFailure) EditorApplication.Exit(1);
+                return;
+            }
 
             string fullPath = AbsoluteProjectPath(outputPath);
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
@@ -69,7 +86,7 @@ namespace TooFishy.EditorTools
                 options = BuildOptions.None
             };
 
-            Debug.Log($"[Build] Android -> {fullPath} (versionCode {PlayerSettings.Android.bundleVersionCode}, " +
+            Debug.Log($"[Build] Android {(bundle ? "AAB" : "APK")} -> {fullPath} (targetSdk {(int)PlayerSettings.Android.targetSdkVersion}, versionCode {PlayerSettings.Android.bundleVersionCode}, " +
                       $"version {PlayerSettings.bundleVersion}, customKeystore={PlayerSettings.Android.useCustomKeystore})");
             Run(options, exitOnFailure);
         }
@@ -161,15 +178,16 @@ namespace TooFishy.EditorTools
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.ARMv7;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel25;
-            // Auto = the highest SDK installed with the editor
-            PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
+            PlayerSettings.Android.targetSdkVersion = (AndroidSdkVersions)TargetApi;
+            string versionName = GetArg("-versionName");
+            if (!string.IsNullOrWhiteSpace(versionName)) PlayerSettings.bundleVersion = versionName;
             PlayerSettings.Android.forceInternetPermission = false;
             PlayerSettings.Android.forceSDCardPermission = false;
             PlayerSettings.Android.renderOutsideSafeArea = false;
-            EditorUserBuildSettings.buildAppBundle = false;
         }
 
-        static void ConfigureAndroidSigning()
+        /// <summary>Returns true when a release keystore was configured. Never logs the credentials.</summary>
+        static bool ConfigureAndroidSigning()
         {
             string keystore = Environment.GetEnvironmentVariable("KEYSTORE_FILE");
             string storePass = Environment.GetEnvironmentVariable("KEYSTORE_PASSWORD");
@@ -181,7 +199,7 @@ namespace TooFishy.EditorTools
             {
                 Debug.LogWarning("[Build] No release keystore in the environment; producing a debug-signed APK.");
                 PlayerSettings.Android.useCustomKeystore = false;
-                return;
+                return false;
             }
 
             PlayerSettings.Android.useCustomKeystore = true;
@@ -189,6 +207,7 @@ namespace TooFishy.EditorTools
             PlayerSettings.Android.keystorePass = storePass;
             PlayerSettings.Android.keyaliasName = alias;
             PlayerSettings.Android.keyaliasPass = string.IsNullOrWhiteSpace(keyPass) ? storePass : keyPass;
+            return true;
         }
 
         static string AbsoluteProjectPath(string relative) =>
