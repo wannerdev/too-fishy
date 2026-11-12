@@ -15,6 +15,9 @@ namespace TooFishy
         static readonly HashSet<string> Warned = new();
 
         public static GameObject Model(string godotPath) => Load<GameObject>(StripExtension(godotPath));
+        /// <summary>Phones and WebGL swap the 344k-vertex boss rock for a lighter lookalike.</summary>
+        static bool UseLightRock => Application.isMobilePlatform || Application.platform == RuntimePlatform.WebGLPlayer;
+
         public static Material Material(string name) => Load<Material>("Materials/" + name);
         public static Texture2D Texture(string godotPath) => Load<Texture2D>(StripExtension(godotPath));
         public static Sprite Sprite(string godotPath) => Load<Sprite>(StripExtension(godotPath));
@@ -58,9 +61,9 @@ namespace TooFishy
             fix.SetParent(node, false);
             fix.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
-            // gestein_v001.obj (boss section rock) has 344k vertices, too heavy for phones; the
-            // similar gestein_v003 rock stands in, fitted to v001's bounds.
-            var prefab = Model(modelPath == "meshes/gestein_v001.obj" ? "meshes/gestein_v003.obj" : modelPath);
+            // gestein_v001.obj (boss section rock) has 344k vertices. Desktop builds use the original;
+            // phones and WebGL use the similar gestein_v003 rock, fitted to v001's bounds.
+            var prefab = Model(modelPath == "meshes/gestein_v001.obj" && UseLightRock ? "meshes/gestein_v003.obj" : modelPath);
             GameObject model;
             if (prefab != null)
             {

@@ -28,7 +28,20 @@ namespace TooFishy.EditorTools
         const string GeneratedDir = OutRoot + "/Generated";
         const string StampFile = OutRoot + "/.synced";
         // Bump when the file list or a material definition changes.
-        const string Version = "4";
+        const string Version = "6";
+        /// <summary>The 54 MB / 344k-vertex boss rock. Desktop builds only; phones and WebGL use gestein_v003.</summary>
+        const string HeavyRock = "meshes/gestein_v001.obj";
+        /// <summary>Set by the build scripts so a build for another target than the active one syncs the right set.</summary>
+        public static BuildTarget? TargetOverride;
+        static bool IncludeHeavyRock
+        {
+            get
+            {
+                var t = TargetOverride ?? EditorUserBuildSettings.activeBuildTarget;
+                return t != BuildTarget.Android && t != BuildTarget.WebGL && t != BuildTarget.iOS;
+            }
+        }
+        static string Stamp => Version + (IncludeHeavyRock ? "+rock" : "");
 
         /// <summary>Paths relative to the repository root, copied verbatim under <see cref="OutRoot"/>.</summary>
         static readonly string[] Files =
@@ -41,6 +54,7 @@ namespace TooFishy.EditorTools
             "meshes/SM_Blobert.obj",
             "meshes/SM_Crate.obj",
             "meshes/SM_Pickaxe.obj",
+            "meshes/gestein_v001.obj", // desktop only, see HeavyRock
             "meshes/gestein_v003.obj",
             "meshes/vains_v003.obj",
             "meshes/Lanceharpoon.fbx",
@@ -125,7 +139,7 @@ namespace TooFishy.EditorTools
         }
 
         static bool IsUpToDate() =>
-            File.Exists(Abs(StampFile)) && File.ReadAllText(Abs(StampFile)).Trim() == Version;
+            File.Exists(Abs(StampFile)) && File.ReadAllText(Abs(StampFile)).Trim() == Stamp;
 
         public static void Sync()
         {
@@ -140,8 +154,15 @@ namespace TooFishy.EditorTools
             try
             {
                 AssetDatabase.StartAssetEditing();
+                string heavyDst = Abs($"{OutRoot}/{HeavyRock}");
+                if (!IncludeHeavyRock)
+                {
+                    if (File.Exists(heavyDst)) File.Delete(heavyDst);
+                    if (File.Exists(heavyDst + ".meta")) File.Delete(heavyDst + ".meta");
+                }
                 foreach (string rel in Files)
                 {
+                    if (rel == HeavyRock && !IncludeHeavyRock) continue;
                     string src = Path.Combine(repoRoot, rel);
                     string dst = Abs($"{OutRoot}/{rel}");
                     if (!File.Exists(src))
@@ -169,7 +190,7 @@ namespace TooFishy.EditorTools
             BuildMaterials();
             AssetDatabase.SaveAssets();
 
-            File.WriteAllText(Abs(StampFile), Version);
+            File.WriteAllText(Abs(StampFile), Stamp);
             Debug.Log($"[GodotAssetSync] Synced Godot assets ({copied} files copied).");
         }
 
@@ -443,6 +464,29 @@ namespace TooFishy.EditorTools
     {
         static bool IsGodot(string path) => path.StartsWith(GodotAssetSync.OutRoot + "/", StringComparison.Ordinal);
 
+        public override uint GetVersion() => 4;
+
+        /// <summary>
+        /// The Godot rock meshes (gestein_*.obj) are single-sided shells that Godot draws from the
+        /// outside, but they arrive inside-out through Unity's OBJ importer: with back-face culling
+        /// only thin slivers of them stay visible. Reversing the winding brings the rocks back.
+        /// </summary>
+        void OnPostprocessModel(GameObject root)
+        {
+            if (!IsGodot(assetPath) || !Path.GetFileName(assetPath).StartsWith("gestein_", StringComparison.Ordinal)) return;
+            foreach (var mf in root.GetComponentsInChildren<MeshFilter>())
+            {
+                var mesh = mf.sharedMesh;
+                if (mesh == null) continue;
+                for (int s = 0; s < mesh.subMeshCount; s++)
+                {
+                    var tris = mesh.GetTriangles(s);
+                    for (int i = 0; i + 2 < tris.Length; i += 3)
+                        (tris[i + 1], tris[i + 2]) = (tris[i + 2], tris[i + 1]);
+                    mesh.SetTriangles(tris, s);
+                }
+            }
+        }
         void OnPreprocessModel()
         {
             if (!IsGodot(assetPath)) return;

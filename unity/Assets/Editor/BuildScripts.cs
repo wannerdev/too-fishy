@@ -52,6 +52,7 @@ namespace TooFishy.EditorTools
 
         static void BuildAndroidInternal(string outputPath, int? versionCode, bool exitOnFailure)
         {
+            GodotAssetSync.TargetOverride = BuildTarget.Android;
             ApplySharedPlayerSettings();
             ConfigureAndroidPlayerSettings(versionCode);
             ConfigureAndroidSigning();
@@ -75,6 +76,7 @@ namespace TooFishy.EditorTools
 
         static void BuildWebGLInternal(string outputDir, bool exitOnFailure)
         {
+            GodotAssetSync.TargetOverride = BuildTarget.WebGL;
             ApplySharedPlayerSettings();
 
             // Gzip with the JavaScript decompression fallback works on any static host without
@@ -107,6 +109,7 @@ namespace TooFishy.EditorTools
 
         public static void BuildWindows()
         {
+            GodotAssetSync.TargetOverride = BuildTarget.StandaloneWindows64;
             ApplySharedPlayerSettings();
             string fullPath = AbsoluteProjectPath(GetArg("-outputPath") ?? "build/windows/TooFishy.exe");
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
