@@ -32,7 +32,7 @@ namespace TooFishy.EditorTools
         /// <summary>Google Play: new apps and updates must target API 36 from 2026-08-31.</summary>
         const int TargetApi = 36;
         const string DefaultWeb = "build/webgl";
-        const string BundleId = "de.wannerdev.toofishy";
+        const string BundleId = "de.zackig.toofishy";
         static readonly string[] Scenes = { "Assets/Scenes/Main.unity" };
 
         [MenuItem("Too Fishy/Build Android APK")]

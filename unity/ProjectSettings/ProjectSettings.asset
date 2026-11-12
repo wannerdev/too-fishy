@@ -170,7 +170,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   androidMinAspectRatio: 1
   applicationIdentifier:
-    Android: de.wannerdev.toofishy
+    Android: de.zackig.toofishy
   buildNumber:
     Standalone: 0
     VisionOS: 0
