@@ -105,6 +105,23 @@ namespace TooFishy.EditorTools
             Run(options, exitOnFailure);
         }
 
+        public static void BuildWindows()
+        {
+            ApplySharedPlayerSettings();
+            string fullPath = AbsoluteProjectPath(GetArg("-outputPath") ?? "build/windows/TooFishy.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
+            var options = new BuildPlayerOptions
+            {
+                scenes = Scenes,
+                locationPathName = fullPath,
+                target = BuildTarget.StandaloneWindows64,
+                targetGroup = BuildTargetGroup.Standalone,
+                options = BuildOptions.None
+            };
+            Debug.Log($"[Build] Windows -> {fullPath}");
+            Run(options, true);
+        }
+
         static void Run(BuildPlayerOptions options, bool exitOnFailure)
         {
             BuildReport report = BuildPipeline.BuildPlayer(options);
