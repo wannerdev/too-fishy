@@ -343,14 +343,20 @@ namespace TooFishy
 
         /// <summary>LeftWall / LeftWall2 of section.tscn: gestein rock with overlay, veins, box collider.</summary>
         static void BuildRockWall(Transform parent, string name, string veinsMaterial, params float[] godotTransform)
+            => BuildRockWall(parent, name, veinsMaterial, null, null, godotTransform);
+
+        /// <param name="gesteinLocal">Godot transform of the Gestein MeshInstance3D below LeftWall/Node3D2 (null = identity).</param>
+        /// <param name="veinsLocal">Same for the Veins MeshInstance3D.</param>
+        static void BuildRockWall(Transform parent, string name, string veinsMaterial, float[] gesteinLocal, float[] veinsLocal, float[] godotTransform)
         {
             var wall = new GameObject(name).transform;
             wall.SetParent(parent, false);
             GodotSpace.Apply(wall, godotTransform);
 
-            var rock = GodotAssets.SpawnModel(wall, "Gestein", "meshes/gestein_v003.obj", "walls", null);
+            // LeftWall/Node3D2 is an identity node in every scene, so Gestein and Veins hang off the wall directly.
+            var rock = GodotAssets.SpawnModel(wall, "Gestein", "meshes/gestein_v003.obj", "walls", gesteinLocal);
             GodotAssets.AddOverlay(rock, "walls_overlay_section");
-            GodotAssets.SpawnModel(wall, "Veins", "meshes/vains_v003.obj", veinsMaterial, null);
+            GodotAssets.SpawnModel(wall, "Veins", "meshes/vains_v003.obj", veinsMaterial, veinsLocal);
 
             var col = wall.gameObject.AddComponent<BoxCollider>();
             col.center = GodotSpace.Pos(1.57438f, -0.818055f, 0.261556f);
@@ -514,9 +520,15 @@ namespace TooFishy
                 waterMat != null ? waterMat : Materials.Transparent(new Color(0f, 0.55f, 0.65f, 0.7f), glossiness: 0.98f);
 
             // The big rock ridge behind the surface (main_scene.tscn LeftWall)
+            // The Gestein and Veins meshes sit inside LeftWall/Node3D2 with their own transform (scaled
+            // 0.947 / 1 / 0.567 along the wall's axes and moved 3.86 along its local Z): that squashes the
+            // ridge to the band around the water surface and brings it closer to the camera. This is the
+            // scene as saved in the Godot working tree (the committed scene still has identity here).
             BuildRockWall(_worldRoot, "SurfaceRocks", "veins",
-                -0.00814527f, 1.2191f, 0.00407302f, -0.672664f, -0.00789123f, 1.01674f, 1.01673f, 0.0045457f, 0.672698f,
-                -13.6118f, -4.41036f, -8.67722f);
+                new[] { 0.9467385f, -1.38778e-17f, 1.690711e-08f, 0f, 1.0000006f, 2.641736e-10f, -2.8215009e-08f, -4.656616e-10f, 0.5673084f, -5.422608e-08f, 6.337203e-10f, 3.8609052f },
+                new[] { 0.9467385f, 0f, 1.6907096e-08f, 0f, 1.0000006f, 0f, 2.8214984e-08f, 0f, 0.5673084f, -5.4226177e-08f, -1.1641539e-09f, 3.8609052f },
+                new[] { -0.00814527f, 1.2191f, 0.00407302f, -0.672664f, -0.00789123f, 1.01674f, 1.01673f, 0.0045457f, 0.672698f,
+                        -13.6118f, -4.41036f, -8.67722f });
 
             // Level/lava of main_scene.tscn: a lava_side patch near the right wall (~20 m) and a lava
             // column near the left wall (~35-48 m); both hurt

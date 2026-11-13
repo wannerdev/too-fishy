@@ -83,10 +83,34 @@ func fire_at(world_pos: Vector3):
 	await wait(0.1)
 	Input.action_release("throw")
 
+func dump_rocks():
+	for n in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+		if n.mesh == null or n.get_aabb().size == Vector3.ZERO:
+			continue
+		var rp = n.mesh.resource_path
+		if rp.contains("gestein") or rp.contains("vains"):
+			var a = n.global_transform * n.get_aabb()
+			var c = a.get_center()
+			if c.y > -70.0:
+				log_line("ROCK %s mesh=%s center=(%.2f,%.2f,%.2f) size=(%.2f,%.2f,%.2f)" % [str(n.get_path()), rp.get_file(), c.x, c.y, c.z, a.size.x, a.size.y, a.size.z])
 func run():
 	while GameState.player_node == null or get_node_or_null("/root/Node3D/Level") == null:
 		await wait(0.1)
 	await wait(2.5)
+	if OS.get_cmdline_user_args().size() > 1:
+		# dockmode: only the surface/dock views, then quit
+		await skip_dialogs()
+		skip_intro()
+		await wait(1.5)
+		await skip_dialogs()
+		GameState.god_mode = true
+		dump_rocks()
+		for pos in [[-3.0, 0.5, "dock"], [-8.0, 0.5, "dock_left"], [-14.0, 0.5, "dock_far_left"], [-3.0, -3.0, "dock_below"]]:
+			teleport(pos[0], pos[1])
+			await wait(3.0)
+			await shot(pos[2])
+		get_tree().quit()
+		return
 	await shot("intro_first_dialog")
 	await skip_dialogs()
 	await wait(2.0)

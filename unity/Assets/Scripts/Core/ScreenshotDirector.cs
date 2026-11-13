@@ -13,6 +13,7 @@ namespace TooFishy
     {
         string _dir;
         bool _intro;
+        bool _dockOnly;
         int _n;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -27,6 +28,7 @@ namespace TooFishy
                 var d = go.AddComponent<ScreenshotDirector>();
                 d._dir = args[i + 1];
                 d._intro = System.Array.IndexOf(args, "-tfintro") >= 0;
+                d._dockOnly = System.Array.IndexOf(args, "-tfdock") >= 0;
                 if (!d._intro && GameState.Instance != null) GameState.Instance.EnableIntroMission = false;
                 Directory.CreateDirectory(d._dir);
                 d.StartCoroutine(d.Run());
@@ -56,6 +58,21 @@ namespace TooFishy
             while (Time.realtimeSinceStartup < t) yield return null;
         }
 
+        void DumpRocks()
+        {
+            foreach (var mf in FindObjectsByType<MeshFilter>(FindObjectsSortMode.None))
+            {
+                var r = mf.GetComponent<Renderer>();
+                if (r == null || mf.sharedMesh == null) continue;
+                string path = mf.name; var t = mf.transform.parent;
+                while (t != null) { path = t.name + "/" + path; t = t.parent; }
+                if (!path.Contains("Gestein") && !path.Contains("Veins") && !path.Contains("Rock")) continue;
+                var b = r.bounds;
+                if (b.center.y < -70f) continue;
+                File.AppendAllText(Path.Combine(_dir, "director.log"),
+                    $"ROCK {path} mats={r.sharedMaterials.Length} center=({b.center.x:0.00},{b.center.y:0.00},{-b.center.z:0.00}) size=({b.size.x:0.00},{b.size.y:0.00},{b.size.z:0.00})\n");
+            }
+        }
         IEnumerator Run()
         {
             Log("start");
@@ -71,6 +88,25 @@ namespace TooFishy
                 yield return Shot("intro_friend_sub_450m");
                 yield return Wait(5f);
                 yield return Shot("intro_friend_sub_later");
+                Application.Quit(0);
+                yield break;
+            }
+            if (_dockOnly)
+            {
+                // Surface / dock views only (compared with godot-ref shot_director.gd "dock" mode)
+                if (gs.IsIntro()) gs.Level.SkipIntro();
+                yield return Wait(1.5f);
+                yield return SkipDialogs();
+                gs.GodMode = true;
+                DumpRocks();
+                foreach (var (x, y, label) in new[] { (-3f, 0.5f, "dock"), (-8f, 0.5f, "dock_left"), (-14f, 0.5f, "dock_far_left"), (-3f, -3f, "dock_below") })
+                {
+                    Teleport(x, y);
+                    yield return Wait(3f);
+                    var menu0 = FindFirstObjectByType<UpgradeMenu>();
+                    if (menu0 != null && label != "dock") menu0.HandleEscape();
+                    yield return Shot(label);
+                }
                 Application.Quit(0);
                 yield break;
             }
