@@ -151,7 +151,7 @@ namespace TooFishy
                     if (li >= 3) break;
                     var c = r.bounds.center;
                     Log($"lava {li} center={c} size={r.bounds.size}");
-                    Teleport(c.x + 4f, c.y);
+                    Teleport(c.x < -15f ? c.x + 4f : c.x - 6f, c.y); // stand in open water next to the lava, not inside the rock
                     yield return Wait(3.5f);
                     yield return Shot($"lava_{li++}");
                 }
