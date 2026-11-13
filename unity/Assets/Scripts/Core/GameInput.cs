@@ -16,15 +16,18 @@ namespace TooFishy
         /// when the device's main pointer is a finger (coarse) or after the first real touch. Unity's
         /// Input.touchSupported is true in every WebGL build, so it cannot tell a phone from a PC.
         /// </summary>
-        public static bool TouchMode => Application.isMobilePlatform || WebTouch.Detected;
+        public static bool TouchMode => Application.isMobilePlatform || WebTouch.Detected || TestTouchUi;
+
+        /// <summary>Dev tool: <c>-tftouchtest</c> builds and shows the touch UI in a desktop player (ScreenshotDirector).</summary>
+        public static readonly bool TestTouchUi = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tftouchtest") >= 0;
 
         /// <summary>Whether the touch UI has to be built at all (it is created hidden in browsers).</summary>
-        public static bool TouchUiPossible => Application.isMobilePlatform || Application.platform == RuntimePlatform.WebGLPlayer;
+        public static bool TouchUiPossible => Application.isMobilePlatform || Application.platform == RuntimePlatform.WebGLPlayer || TestTouchUi;
 
         /// <summary>
         /// Mouse clicks fire the harpoon on desktops, including desktop browsers and laptops with a
         /// touch screen (where <see cref="TouchMode"/> is true too). On phones every tap is also
-        /// reported as a mouse click, so there only the on-screen fire button counts.
+        /// reported as a mouse click, so there only taps on the right half of the screen count (TouchControls).
         /// </summary>
         public static bool MouseFireAllowed => !Application.isMobilePlatform && Input.touchCount == 0;
 

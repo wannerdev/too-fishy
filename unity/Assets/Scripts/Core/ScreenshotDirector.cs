@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.EventSystems;
 using System.IO;
 using UnityEngine;
 
@@ -14,6 +16,7 @@ namespace TooFishy
         string _dir;
         bool _intro;
         bool _dockOnly;
+        bool _touchTest;
         int _n;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -29,6 +32,7 @@ namespace TooFishy
                 d._dir = args[i + 1];
                 d._intro = System.Array.IndexOf(args, "-tfintro") >= 0;
                 d._dockOnly = System.Array.IndexOf(args, "-tfdock") >= 0;
+                d._touchTest = GameInput.TestTouchUi;
                 if (!d._intro && GameState.Instance != null) GameState.Instance.EnableIntroMission = false;
                 Directory.CreateDirectory(d._dir);
                 d.StartCoroutine(d.Run());
@@ -73,6 +77,145 @@ namespace TooFishy
                     $"ROCK {path} mats={r.sharedMaterials.Length} center=({b.center.x:0.00},{b.center.y:0.00},{-b.center.z:0.00}) size=({b.size.x:0.00},{b.size.y:0.00},{b.size.z:0.00})\n");
             }
         }
+        // ---- -tftouchtest: drives TouchControls through the real EventSystem raycast with synthetic
+        // pointers, one pointer id per finger (a desktop player has no multi-touch hardware).
+        readonly Dictionary<int, PointerEventData> _sim = new Dictionary<int, PointerEventData>();
+
+        GameObject SimDown(int id, Vector2 pos)
+        {
+            var es = EventSystem.current;
+            var e = new PointerEventData(es) { pointerId = id, position = pos, pressPosition = pos, button = PointerEventData.InputButton.Left };
+            var hits = new List<RaycastResult>();
+            es.RaycastAll(e, hits);
+            var hit = hits.Count > 0 ? hits[0] : default;
+            e.pointerCurrentRaycast = e.pointerPressRaycast = hit;
+            GameObject go = hit.gameObject;
+            if (go != null)
+            {
+                e.pointerPress = ExecuteEvents.ExecuteHierarchy(go, e, ExecuteEvents.pointerDownHandler);
+                e.rawPointerPress = go;
+                e.pointerDrag = ExecuteEvents.GetEventHandler<IDragHandler>(go);
+            }
+            _sim[id] = e;
+            return go;
+        }
+
+        void SimMove(int id, Vector2 pos)
+        {
+            var e = _sim[id];
+            e.delta = pos - e.position;
+            e.position = pos;
+            if (e.pointerDrag != null)
+            {
+                if (!e.dragging) { e.dragging = true; ExecuteEvents.Execute(e.pointerDrag, e, ExecuteEvents.beginDragHandler); }
+                ExecuteEvents.Execute(e.pointerDrag, e, ExecuteEvents.dragHandler);
+            }
+        }
+
+        void SimUp(int id)
+        {
+            var e = _sim[id];
+            if (e.pointerPress != null)
+            {
+                ExecuteEvents.Execute(e.pointerPress, e, ExecuteEvents.pointerUpHandler);
+                if (!e.dragging && ExecuteEvents.GetEventHandler<IPointerClickHandler>(e.rawPointerPress) == e.pointerPress)
+                    ExecuteEvents.Execute(e.pointerPress, e, ExecuteEvents.pointerClickHandler);
+            }
+            if (e.dragging && e.pointerDrag != null) ExecuteEvents.Execute(e.pointerDrag, e, ExecuteEvents.endDragHandler);
+            _sim.Remove(id);
+        }
+
+        static bool JoystickVisible()
+        {
+            foreach (var t in Resources.FindObjectsOfTypeAll<Transform>())
+                if (t.name == "JoyBase" && t.gameObject.scene.IsValid()) return t.gameObject.activeInHierarchy;
+            return false;
+        }
+
+        void T(string m) => Log("TOUCHTEST " + m);
+
+        IEnumerator TouchTest(GameState gs)
+        {
+            if (gs.IsIntro()) gs.Level.SkipIntro();
+            yield return Wait(1.5f);
+            yield return SkipDialogs();
+            gs.GodMode = true;
+            foreach (Upgrade u in System.Enum.GetValues(typeof(Upgrade))) gs.Upgrades[u] = GameState.MaxUpgrades[u];
+            Teleport(-8f, -12f);
+            yield return Wait(3f);
+            float W = Screen.width, H = Screen.height;
+            var cam = Camera.main;
+            Vector2 playerScreen = cam.WorldToScreenPoint(gs.Player.transform.position);
+            T($"screen {W}x{H}, player at screen {playerScreen}, red ShootButton exists: {GameObject.Find("ShootButton") != null}");
+            yield return Shot("touch_ui_idle");
+
+            // 1. Taps on the right half fire at the tapped point
+            foreach (var (fx, fy, label) in new[] { (0.80f, 0.62f, "tap_right_upper"), (0.62f, 0.18f, "tap_right_lower") })
+            {
+                var tap = new Vector2(W * fx, H * fy);
+                int before = FindObjectsByType<Harpoon>(FindObjectsSortMode.None).Length;
+                var hit = SimDown(1, tap);
+                SimUp(1);
+                yield return Wait(0.2f);
+                var hs = FindObjectsByType<Harpoon>(FindObjectsSortMode.None);
+                float z = hs.Length > before ? hs[0].transform.eulerAngles.z : float.NaN;
+                Vector2 d = tap - (Vector2)cam.WorldToScreenPoint(gs.Player.transform.position);
+                float want = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg; if (want < 0) want += 360f;
+                T($"{label}: tap {tap} hit={(hit != null ? hit.name : "none")} harpoons {before}->{hs.Length} harpoonAngle={z:0.0} expectedAngle~{want:0.0} joystickVisible={JoystickVisible()}");
+                yield return Wait(0.1f);
+                yield return Shot(label);
+                yield return Wait(1.2f);
+            }
+
+            // 2. Multitouch: left finger steers while the right hand taps
+            {
+                var start = new Vector2(W * 0.18f, H * 0.4f);
+                int before = FindObjectsByType<Harpoon>(FindObjectsSortMode.None).Length;
+                var h1 = SimDown(10, start);
+                SimMove(10, start + new Vector2(70f, 55f));
+                T($"left finger down hit={(h1 != null ? h1.name : "none")} joystickVisible={JoystickVisible()} move={GameInput.VirtualMove}");
+                var tap = new Vector2(W * 0.86f, H * 0.3f);
+                var h2 = SimDown(11, tap);
+                SimUp(11);
+                yield return Wait(0.2f);
+                int after = FindObjectsByType<Harpoon>(FindObjectsSortMode.None).Length;
+                T($"second finger tap right hit={(h2 != null ? h2.name : "none")} harpoons {before}->{after} move still {GameInput.VirtualMove} joystickVisible={JoystickVisible()}");
+                // A second finger on the left half must not steal or restart the joystick
+                var before2 = GameInput.VirtualMove;
+                SimDown(12, new Vector2(W * 0.3f, H * 0.2f));
+                SimMove(12, new Vector2(W * 0.3f - 90f, H * 0.2f));
+                T($"third finger on left half ignored: move {before2} -> {GameInput.VirtualMove}");
+                SimUp(12);
+                yield return Wait(0.6f);
+                yield return Shot("multitouch_move_and_tap");
+                SimUp(10);
+                T($"left finger up: move={GameInput.VirtualMove} joystickVisible={JoystickVisible()}");
+                yield return Wait(1f);
+            }
+
+            // 3. Top buttons: the touch goes to the button, never to the pad
+            var canvasRoot = GameObject.Find("TouchControls");
+            foreach (var name in new[] { "PauseBtn", "InventoryBtn", "BuoyBtn", "DroneBtn", "PickaxeBtn", "GunBtn" })
+            {
+                var t = canvasRoot.transform.Find(name);
+                if (t == null || !t.gameObject.activeInHierarchy) { T($"{name}: not active"); continue; }
+                var corners = new Vector3[4];
+                ((RectTransform)t).GetWorldCorners(corners);
+                Vector2 c = (corners[0] + corners[2]) * 0.5f;
+                int before = FindObjectsByType<Harpoon>(FindObjectsSortMode.None).Length;
+                var hit = SimDown(20, c);
+                bool held = GameInput.VirtualShootHeld;
+                yield return Wait(0.1f);
+                if (name == "InventoryBtn") yield return Shot("top_button_inventory_tap");
+                SimUp(20);
+                yield return Wait(0.3f);
+                int after = FindObjectsByType<Harpoon>(FindObjectsSortMode.None).Length;
+                T($"{name}: centre {c} hit={(hit != null ? hit.name : "none")} harpoons {before}->{after} joystickVisible={JoystickVisible()} move={GameInput.VirtualMove} gunHeldWhileDown={held} afterUp={GameInput.VirtualShootHeld} paused={gs.Paused}");
+                if (name == "PauseBtn") { yield return Shot("top_button_pause_tap"); GameInput.PressPause(); yield return Wait(0.5f); }
+                if (name == "InventoryBtn") { GameInput.PressInventory(); yield return Wait(0.5f); }
+            }
+            T("done");
+        }
         IEnumerator Run()
         {
             Log("start");
@@ -88,6 +231,12 @@ namespace TooFishy
                 yield return Shot("intro_friend_sub_450m");
                 yield return Wait(5f);
                 yield return Shot("intro_friend_sub_later");
+                Application.Quit(0);
+                yield break;
+            }
+            if (_touchTest)
+            {
+                yield return TouchTest(gs);
                 Application.Quit(0);
                 yield break;
             }

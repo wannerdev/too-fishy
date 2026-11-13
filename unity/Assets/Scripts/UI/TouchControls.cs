@@ -5,20 +5,28 @@ using UnityEngine.UI;
 namespace TooFishy
 {
     /// <summary>
-    /// Port of scripts/touch_controls.gd (phones and touch browsers): a floating joystick that
-    /// appears wherever a touch starts (grey base r 100, knob r 50) and the red 150 px shoot
-    /// button with a white cross in the bottom-right corner.
+    /// Touch controls for phones and touch browsers. A deliberate redesign, not a port of
+    /// scripts/touch_controls.gd: Godot's red shoot button aims at the button itself, so the harpoon
+    /// could only ever fly towards the bottom-right corner.
     ///
-    /// Godot reaches the inventory, buoy, drone, pickaxe and pause only through keys, which a
-    /// phone does not have, so small buttons for those are added along the top edge (the
-    /// upgrade-bound ones only once the upgrade is owned).
+    /// - Left half of the screen: a floating joystick (grey base r 100, knob r 50) that starts where
+    ///   a finger lands and follows that finger until it lifts.
+    /// - Right half: a tap fires the harpoon at the tapped point, like a mouse click on desktop.
+    /// - Every finger is tracked by its pointer id, so the left thumb can steer while the right
+    ///   hand taps.
+    /// - The buttons along the top edge (II, INV, BUOY, SELL, DIG, GUN) sit above the full-screen
+    ///   pad, so the EventSystem hands a touch on them to the button and the pad never sees it:
+    ///   such a touch neither fires nor starts the joystick. Godot reaches the inventory, buoy,
+    ///   drone, pickaxe and pause only through keys, which a phone does not have (the upgrade-bound
+    ///   ones appear once the upgrade is owned).
     /// </summary>
     public class TouchControls : MonoBehaviour
     {
         const float JoystickRadius = 100f;
+        const int NoPointer = int.MinValue;
 
         RectTransform _root, _joyBase, _joyKnob;
-        Image _shoot;
+        int _joyPointer = NoPointer;
         Button _buoyBtn, _droneBtn, _pickaxeBtn, _gunBtn;
 
         public static TouchControls Create(Transform canvasRoot)
@@ -32,7 +40,7 @@ namespace TooFishy
 
         void Build()
         {
-            // Everything outside the buttons starts the joystick
+            // Full-screen pad below the buttons: left half = joystick, right half = aim and fire
             var pad = UiKit.ColorRect(_root, "JoystickPad", new Color(0, 0, 0, 0));
             pad.raycastTarget = true;
             UiKit.Fill(pad.rectTransform);
@@ -50,18 +58,7 @@ namespace TooFishy
                 rt.gameObject.SetActive(false);
             }
 
-            // Shoot button: 150×150, 20 px from the bottom-right corner
-            _shoot = UiKit.Picture(_root, "ShootButton", UiKit.Circle, false);
-            _shoot.raycastTarget = true;
-            _shoot.color = new Color(1f, 0.3f, 0.3f, 0.7f);
-            UiKit.Place(_shoot.rectTransform, 1, 1, 1, 1, -170, -170, -20, -20);
-            var h = UiKit.ColorRect(_shoot.transform, "CrossH", Color.white).rectTransform;
-            UiKit.Centered(h, 60, 5);
-            var v = UiKit.ColorRect(_shoot.transform, "CrossV", Color.white).rectTransform;
-            UiKit.Centered(v, 5, 60);
-            _shoot.gameObject.AddComponent<ShootButton>().Owner = this;
-
-            // Extra buttons (not in Godot, see class comment)
+            // Top-edge buttons (not in Godot, see class comment)
             float x = -20f;
             SmallButton("PauseBtn", "II", ref x, GameInput.PressPause);
             SmallButton("InventoryBtn", "INV", ref x, GameInput.PressInventory);
@@ -93,35 +90,64 @@ namespace TooFishy
             _gunBtn.gameObject.SetActive(gun);
         }
 
-        Vector2 ToLocal(PointerEventData e)
+        Vector2 ToLocal(Vector2 screenPos, Camera cam)
         {
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(_root, e.position, e.pressEventCamera, out var local);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(_root, screenPos, cam, out var local);
             return local - _root.rect.min; // bottom-left origin
         }
 
-        void JoystickDown(PointerEventData e)
+        /// <summary>True for a touch that starts on the left half of the screen.</summary>
+        public static bool IsLeftHalf(Vector2 screenPos) => screenPos.x < Screen.width * 0.5f;
+
+        /// <summary>
+        /// A finger landed on the pad (nothing else was under it). Left half: it becomes the joystick
+        /// finger unless another finger already is. Right half: fire at that point.
+        /// </summary>
+        public void PadDown(int pointerId, Vector2 screenPos, Camera cam)
         {
-            var p = ToLocal(e);
-            _joyBase.anchoredPosition = p;
-            _joyKnob.anchoredPosition = p;
-            _joyBase.gameObject.SetActive(true);
-            _joyKnob.gameObject.SetActive(true);
-            GameInput.VirtualMove = Vector2.zero;
+            if (IsLeftHalf(screenPos))
+            {
+                if (_joyPointer != NoPointer) return;
+                _joyPointer = pointerId;
+                var p = ToLocal(screenPos, cam);
+                _joyBase.anchoredPosition = p;
+                _joyKnob.anchoredPosition = p;
+                _joyBase.gameObject.SetActive(true);
+                _joyKnob.gameObject.SetActive(true);
+                GameInput.VirtualMove = Vector2.zero;
+            }
+            else
+            {
+                GameInput.PressFire(screenPos);
+            }
         }
 
-        void JoystickDrag(PointerEventData e)
+        public void PadDrag(int pointerId, Vector2 screenPos, Camera cam)
         {
+            if (pointerId != _joyPointer) return;
             Vector2 origin = _joyBase.anchoredPosition;
-            Vector2 d = Vector2.ClampMagnitude(ToLocal(e) - origin, JoystickRadius);
+            Vector2 d = Vector2.ClampMagnitude(ToLocal(screenPos, cam) - origin, JoystickRadius);
             _joyKnob.anchoredPosition = origin + d;
             GameInput.VirtualMove = d / JoystickRadius;
         }
 
-        void JoystickUp()
+        public void PadUp(int pointerId)
         {
+            if (pointerId != _joyPointer) return;
+            ReleaseJoystick();
+        }
+
+        void ReleaseJoystick()
+        {
+            _joyPointer = NoPointer;
             _joyBase.gameObject.SetActive(false);
             _joyKnob.gameObject.SetActive(false);
             GameInput.VirtualMove = Vector2.zero;
+        }
+
+        void OnDisable()
+        {
+            if (_joyPointer != NoPointer && _joyBase != null) ReleaseJoystick();
         }
 
         class JoystickPad : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, ICanvasRaycastFilter
@@ -134,11 +160,11 @@ namespace TooFishy
             /// Keyboard input never goes through the UI and is read in <see cref="GameInput"/>.
             /// </summary>
             public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera) =>
-                Application.isMobilePlatform || Input.touchCount > 0;
+                GameInput.TestTouchUi || Application.isMobilePlatform || Input.touchCount > 0;
 
-            public void OnPointerDown(PointerEventData e) => Owner.JoystickDown(e);
-            public void OnDrag(PointerEventData e) => Owner.JoystickDrag(e);
-            public void OnPointerUp(PointerEventData e) => Owner.JoystickUp();
+            public void OnPointerDown(PointerEventData e) => Owner.PadDown(e.pointerId, e.position, e.pressEventCamera);
+            public void OnDrag(PointerEventData e) => Owner.PadDrag(e.pointerId, e.position, e.pressEventCamera);
+            public void OnPointerUp(PointerEventData e) => Owner.PadUp(e.pointerId);
         }
 
         class HoldButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
@@ -146,20 +172,6 @@ namespace TooFishy
             public void OnPointerDown(PointerEventData e) => GameInput.VirtualShootHeld = true;
             public void OnPointerUp(PointerEventData e) => GameInput.VirtualShootHeld = false;
             void OnDisable() => GameInput.VirtualShootHeld = false;
-        }
-
-        class ShootButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
-        {
-            public TouchControls Owner;
-
-            public void OnPointerDown(PointerEventData e)
-            {
-                Owner._shoot.color = new Color(1f, 0.5f, 0.5f, 0.8f);
-                // Godot aims a rotatable harpoon at the touch position, i.e. at this button
-                GameInput.PressFire(e.position);
-            }
-
-            public void OnPointerUp(PointerEventData e) => Owner._shoot.color = new Color(1f, 0.3f, 0.3f, 0.7f);
         }
     }
 }
