@@ -137,6 +137,25 @@ namespace TooFishy
             yield return Wait(0.35f);
             yield return Shot("pickaxe_swing");
 
+            // Lava (new procedural shader): visit the nearest lava quads in the shallow main scene
+            {
+                var lavaRenderers = new System.Collections.Generic.List<Renderer>();
+                foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                    if (r.sharedMaterial != null && r.sharedMaterial.shader != null && r.sharedMaterial.shader.name == "TooFishy/Lava" && r.bounds.center.y > -80f)
+                        lavaRenderers.Add(r);
+                lavaRenderers.Sort((a, b) => b.bounds.center.y.CompareTo(a.bounds.center.y));
+                Log($"lava renderers in main scene: {lavaRenderers.Count}");
+                int li = 0;
+                foreach (var r in lavaRenderers)
+                {
+                    if (li >= 3) break;
+                    var c = r.bounds.center;
+                    Log($"lava {li} center={c} size={r.bounds.size}");
+                    Teleport(c.x + 4f, c.y);
+                    yield return Wait(3.5f);
+                    yield return Shot($"lava_{li++}");
+                }
+            }
             // Deeper stages (clear of the crate rows at -150/-250/-350/-450 m)
             foreach (var (y, label) in new[] { (-135f, "stage_deep_135m"), (-235f, "stage_deeper_235m"), (-335f, "stage_superdeep_335m"), (-435f, "stage_hot_435m"), (-485f, "stage_lava_485m") })
             {
