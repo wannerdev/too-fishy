@@ -15,10 +15,6 @@ namespace TooFishy
         {
             // Phones and WebGL default to 30 fps otherwise
             Application.targetFrameRate = 60;
-#if UNITY_WEBGL && !UNITY_EDITOR
-            // Take every key (WASD, arrows, space, tab) from the page instead of letting the browser scroll
-            WebGLInput.captureAllKeyboardInput = true;
-#endif
 
             Layers.Configure();
             Settings.Load();
