@@ -151,6 +151,10 @@
       canvas.style.outline = "none";
       canvas.addEventListener("mouseenter", focusGame);
       window.addEventListener("pointerdown", focusGame, true);
+      // The game shows its on-screen controls only on touch devices (coarse pointer) or after a real touch.
+      function markTouched() { window.tfTouched = true; }
+      window.addEventListener("touchstart", markTouched, { passive: true, capture: true });
+      window.addEventListener("pointerdown", function (e) { if (e.pointerType === "touch") markTouched(); }, true);
       window.addEventListener("focus", focusGame);
       document.addEventListener("visibilitychange", function () { if (!document.hidden) focusGame(); });
       window.addEventListener("keydown", function (e) {

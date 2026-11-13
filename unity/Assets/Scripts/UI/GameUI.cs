@@ -45,12 +45,15 @@ namespace TooFishy
             ui._pause = PauseMenu.Create(canvas);
             Cheats.Create(canvas);
 
-            if (GameInput.TouchMode)
+            if (GameInput.TouchUiPossible)
             {
                 // Below the UI canvas so menus and buttons get touches first; everything else
-                // falls through to the joystick pad.
+                // falls through to the joystick pad. In a browser the canvas is built hidden and
+                // only shown on a touch device (see WebTouch), so PCs never see it.
                 var touch = NewCanvas("TouchCanvas", -2);
                 TouchControls.Create(touch);
+                touch.gameObject.SetActive(GameInput.TouchMode);
+                ui.gameObject.AddComponent<TouchCanvasToggle>().Target = touch.gameObject;
             }
             return ui;
         }

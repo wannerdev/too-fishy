@@ -11,10 +11,15 @@ namespace TooFishy
     /// </summary>
     public static class GameInput
     {
-        /// <summary>True when on-screen controls should be shown.</summary>
-        public static bool TouchMode =>
-            Application.isMobilePlatform ||
-            (Application.platform == RuntimePlatform.WebGLPlayer && Input.touchSupported);
+        /// <summary>
+        /// True when on-screen controls should be shown: always on Android and iOS; in a browser only
+        /// when the device's main pointer is a finger (coarse) or after the first real touch. Unity's
+        /// Input.touchSupported is true in every WebGL build, so it cannot tell a phone from a PC.
+        /// </summary>
+        public static bool TouchMode => Application.isMobilePlatform || WebTouch.Detected;
+
+        /// <summary>Whether the touch UI has to be built at all (it is created hidden in browsers).</summary>
+        public static bool TouchUiPossible => Application.isMobilePlatform || Application.platform == RuntimePlatform.WebGLPlayer;
 
         /// <summary>
         /// Mouse clicks fire the harpoon on desktops, including desktop browsers and laptops with a
