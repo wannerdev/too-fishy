@@ -2,7 +2,7 @@
 
 Repository: `C:\repositories\too-fishy-android` is a git worktree of too-fishy on branch
 `claude/unity-android-build` (based on `origin/cursor/unity-port-0b0e`). The Unity project is the
-`unity/` folder (Unity 2022.3.50f1, built-in render pipeline, uGUI, legacy Input Manager).
+`unity/` folder (Unity 6.3 LTS 6000.3.26f1, built-in render pipeline, uGUI 2.0, legacy Input Manager).
 Do not touch `C:\repositories\too-fishy` (the user's dirty Godot checkout).
 
 ## Already done (uncommitted, uncompiled)
@@ -15,19 +15,11 @@ Do not touch `C:\repositories\too-fishy` (the user's dirty Godot checkout).
   PopupText, GameState (DestroyedBarriers), scene fog enabled.
 
 ## Toolchain
-- Editor: `C:\Users\johan\Unity\Editor\2022.3.50f1\Editor\Unity.exe` (installing; wait until it exists
-  and the installer process `UnitySetup64-2022.3.50f1.exe` is gone).
-- Cached module installers (NSIS, support `/S /D=<editor root>`):
-  `C:\Users\johan\AppData\Roaming\UnityHub\downloads\UnitySetup-Android-Support-for-Editor-2022.3.50f1.exe`
-  `C:\Users\johan\AppData\Roaming\UnityHub\downloads\UnitySetup-WebGL-Support-for-Editor-2022.3.50f1.exe`
-  Run each with `__COMPAT_LAYER=RunAsInvoker` set and `/S "/D=C:\Users\johan\Unity\Editor\2022.3.50f1"`;
-  if that produces nothing, use PowerShell `Start-Process -Verb RunAs` (the user approves the prompt).
-  Expected result: `Editor\Data\PlaybackEngines\AndroidPlayer` and `...\WebGLSupport`.
-- Android tooling zips in the same downloads folder: unzip into
-  `Editor\Data\PlaybackEngines\AndroidPlayer\SDK` (platform-tools, build-tools/34.0.0, platforms/android-33|34|35,
-  cmdline-tools), `...\NDK` (android-ndk-r23b contents, so that `NDK\ndk-build.cmd` exists) and
-  `...\OpenJDK` (jdk11 contents, so that `OpenJDK\bin\java.exe` exists). Unity 2022.3 expects exactly
-  this layout. Check the zip's top-level folder and strip it where needed.
+- Editor: Unity **6000.3.26f1** (Unity 6.3 LTS), installed through Unity Hub with the modules
+  *Android Build Support* (including *OpenJDK* and *Android SDK & NDK Tools*) and *Web Build Support*.
+  Hub installs JDK 17, the SDK and the NDK where Unity 6 expects them; no manual unzipping is needed.
+  Default path: `C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe`.
+- Android: minimum API level 25 (the lowest Unity 6.3 supports), target = highest installed SDK.
 - Unity Personal license is already activated on this machine (`%LOCALAPPDATA%\Unity\licenses`).
 
 ## Build commands (run from `C:\repositories\too-fishy-android`)
@@ -37,7 +29,7 @@ set KEYSTORE_FILE=C:\repositories\keystores\too-fishy-release.jks
 set KEYSTORE_PASSWORD=<contents of C:\repositories\keystores\too-fishy-release.password.txt>
 set KEY_ALIAS=<alias from: keytool -list -keystore too-fishy-release.jks -storepass ...>
 set KEY_PASSWORD=%KEYSTORE_PASSWORD%
-"C:\Users\johan\Unity\Editor\2022.3.50f1\Editor\Unity.exe" -batchmode -nographics -quit -projectPath unity -logFile unity\build\android.log -executeMethod TooFishy.EditorTools.BuildScripts.BuildAndroid -outputPath build/android/too-fishy.apk -versionCode 1
+"C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe" -batchmode -nographics -quit -projectPath unity -logFile unity\build\android.log -executeMethod TooFishy.EditorTools.BuildScripts.BuildAndroid -outputPath build/android/too-fishy.apk -versionCode 1
 ```
 WebGL:
 ```

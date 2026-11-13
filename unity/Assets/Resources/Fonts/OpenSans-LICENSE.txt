@@ -1,0 +1,5 @@
+Open Sans SemiBold (OpenSans-SemiBold.ttf) - Godot 4's default UI font, used so the Unity port's
+text matches the original game.
+
+Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)
+Licensed under the SIL Open Font License, Version 1.1: https://openfontlicense.org

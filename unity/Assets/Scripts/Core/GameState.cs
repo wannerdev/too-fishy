@@ -75,7 +75,11 @@ namespace TooFishy
         public GameMode CurrentGameMode { get; private set; } = GameMode.Normal;
         public bool IntroMissionCompleted { get; private set; }
         public bool BossEncountered { get; set; }
-        public bool EnableIntroMission = false; // Start in normal mode for Unity port by default
+        /// <summary>game_state.gd enable_intro_mission (first-time players start as the friend).</summary>
+        public bool EnableIntroMission = true;
+        /// <summary>level.gd: after the intro, the rescue dialog is followed by the regular death.</summary>
+        public bool PendingRegularDeathTransition { get; set; }
+        const string IntroDonePref = "intro_mission_completed";
 
         public Inventory Inventory { get; private set; } = new();
 
@@ -83,6 +87,7 @@ namespace TooFishy
         public readonly HashSet<int> DestroyedBarriers = new();
         public Transform PlayerTransform { get; set; }
         public PlayerController Player { get; set; }
+        public LevelGenerator Level { get; set; }
 
         public event Action OnInventoryUpdated;
         public event Action OnMoneyChanged;
@@ -107,13 +112,23 @@ namespace TooFishy
 
         void Start()
         {
+            // Godot never stores is_first_time_player, so its intro replays on every launch; the
+            // port remembers that the intro was played.
+            IntroMissionCompleted = PlayerPrefs.GetInt(IntroDonePref, 0) == 1;
             if (EnableIntroMission && !IntroMissionCompleted)
                 StartIntroMission();
             else
                 StartNormalMode();
         }
 
-        public void NotifyInventoryUpdated() => OnInventoryUpdated?.Invoke();
+        public void NotifyInventoryUpdated()
+        {
+            Achievements.OnInventoryUpdated(Inventory);
+            OnInventoryUpdated?.Invoke();
+        }
+
+        /// <summary>Godot's <c>snapped(depth, 100)</c>: rounds to the nearest hundred, halves away from zero.</summary>
+        public static int SnapDepth(int depth) => Mathf.FloorToInt((depth + 50) / 100f) * 100;
 
         public void SetDepth(int d)
         {
@@ -127,7 +142,7 @@ namespace TooFishy
                 return;
             }
 
-            int band = (d / 100) * 100; // 0-99 Surface, 100-199 Deep, ...
+            int band = SnapDepth(d); // Godot snapped(d, 100): 0-49 Surface, 50-149 Deep, ...
             Stage newStage = Stage.Surface;
             foreach (var kv in DepthStageMap)
             {
@@ -184,7 +199,7 @@ namespace TooFishy
             Time.timeScale = 1f;
 
             if (Player != null)
-                Player.Teleport(new Vector3(-8f, 0f, 0.33f));
+                Player.Teleport(GodotSpace.Pos(-8f, 0f, 0.33f));
         }
 
         public void StartIntroMission()
@@ -198,12 +213,18 @@ namespace TooFishy
             IsDocked = false;
             PlayerInStage = Stage.Hot;
             Depth = 450;
-            Money = 1000;
+            MaxDepthReached = 450;
             SetupFriendUpgrades();
+            Money = 10000; // player.gd switch_to_friend_submarine()
+            PendingRegularDeathTransition = false;
             Time.timeScale = 1f;
 
+            Level?.StartIntro();
             if (Player != null)
-                Player.Teleport(new Vector3(-8f, -450f, 0.33f));
+            {
+                Player.Teleport(GodotSpace.Pos(-8f, -450f, 0.33f));
+                Player.SwitchToFriendSubmarine();
+            }
         }
 
         void SetupFriendUpgrades()
@@ -217,9 +238,12 @@ namespace TooFishy
             }
         }
 
+        /// <summary>game_state.gd complete_intro_mission()</summary>
         public void CompleteIntroMission(Vector3 deathPosition)
         {
             IntroMissionCompleted = true;
+            PlayerPrefs.SetInt(IntroDonePref, 1);
+            PlayerPrefs.Save();
             ResetUpgrades();
             Money = 25;
             MaxDepthReached = 0;
@@ -228,8 +252,24 @@ namespace TooFishy
             Depth = 0;
             BossEncountered = false;
             Inventory.Clear();
-            if (Player != null)
-                Player.Teleport(new Vector3(-8f, 0f, 0.33f));
+            Dialogs.SetStage(DialogSection.PostIntroRescue);
+            OnUpgradesChanged?.Invoke();
+        }
+
+        /// <summary>save_system.gd load_game(): restores values but leaves the submarine where it is.</summary>
+        public void LoadState(int depth, int maxDepth, int money, float health, Dictionary<Upgrade, int> upgrades, IEnumerable<InventoryItem> items)
+        {
+            SetDepth(depth);
+            MaxDepthReached = maxDepth;
+            Money = money;
+            Health = health;
+            ResetUpgrades();
+            foreach (var kv in upgrades)
+                if (Upgrades.ContainsKey(kv.Key)) Upgrades[kv.Key] = kv.Value;
+            Inventory.SetItems(items);
+            OnMoneyChanged?.Invoke();
+            OnHealthChanged?.Invoke();
+            OnUpgradesChanged?.Invoke();
         }
 
         public void ApplyPressureDamage(float dt)
@@ -258,27 +298,43 @@ namespace TooFishy
             OnHealthChanged?.Invoke();
         }
 
-        public void Die()
+        /// <summary>
+        /// player.gd trigger_regular_death(): the submarine is put back at the surface with full
+        /// health straight away and the death screen only waits for "Respawn".
+        /// </summary>
+        public void Die() => Die(true);
+
+        public void Die(bool showInsurancePopup)
         {
             if (DeathScreen) return;
+            if (IsIntro())
+            {
+                // player.gd process_death(): the friend's "death" ends the intro instead
+                Health = 100f;
+                Level?.SwitchBackToOriginalPlayer();
+                return;
+            }
             DeathScreen = true;
             Paused = true;
+            IsDocked = false;
 
             if (GetUpgradeLevel(Upgrade.InventorySave) < 1)
                 Inventory.Clear();
+            else if (PlayerTransform != null && showInsurancePopup)
+                PopupText.Show("Inventory saved by insurance!", PlayerTransform.position + Vector3.up, Color.green);
 
+            Health = 100f;
+            if (Player != null)
+                Player.Teleport(GodotSpace.Pos(-8f, 0f, 0.33f));
+            OnHealthChanged?.Invoke();
             OnDeath?.Invoke();
         }
 
+        /// <summary>death_screen.gd: the Respawn button only clears the death screen.</summary>
         public void Respawn()
         {
             DeathScreen = false;
             Paused = false;
-            Health = 100f;
-            IsDocked = false;
-            Time.timeScale = 1f;
-            if (Player != null)
-                Player.Teleport(new Vector3(-8f, 0f, 0.33f));
             OnRespawn?.Invoke();
         }
 
@@ -294,22 +350,23 @@ namespace TooFishy
             _ => stage.ToString()
         };
 
+        /// <summary>scripts/strings.gd upgradeNames</summary>
         public static string UpgradeName(Upgrade upgrade) => upgrade switch
         {
-            Upgrade.CargoSize => "Cargo Size",
+            Upgrade.CargoSize => "Increased Cargo Space",
             Upgrade.DepthResistance => "Depth Resistance",
-            Upgrade.PickaxeUnlocked => "Pickaxe",
-            Upgrade.VertSpeed => "Vertical Speed",
-            Upgrade.HorSpeed => "Horizontal Speed",
-            Upgrade.LampUnlocked => "Lamp",
-            Upgrade.Ak47 => "AK-47",
-            Upgrade.DualAk47 => "Dual AK-47",
-            Upgrade.Harpoon => "Harpoon Pierce",
-            Upgrade.HarpoonRotation => "Harpoon Aim",
+            Upgrade.PickaxeUnlocked => "Unlock Pickaxe",
+            Upgrade.VertSpeed => "Agility",
+            Upgrade.HorSpeed => "Thrust",
+            Upgrade.LampUnlocked => "Unlock Lamp",
+            Upgrade.Ak47 => "Unlock Gun",
+            Upgrade.DualAk47 => "Unlock 2nd Gun",
+            Upgrade.Harpoon => "Upgrade Harpoon",
+            Upgrade.HarpoonRotation => "Rotatable Harpoon",
             Upgrade.InventoryManagement => "Smart Inventory",
-            Upgrade.SurfaceBuoy => "Surface Buoy",
-            Upgrade.InventorySave => "Inventory Save",
-            Upgrade.DroneSelling => "Selling Drone",
+            Upgrade.SurfaceBuoy => "Emergency Buoy",
+            Upgrade.InventorySave => "Inventory Insurance",
+            Upgrade.DroneSelling => "Remote Selling Drone",
             _ => upgrade.ToString()
         };
     }
