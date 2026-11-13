@@ -124,9 +124,18 @@ namespace TooFishy
             GameInput.VirtualMove = Vector2.zero;
         }
 
-        class JoystickPad : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
+        class JoystickPad : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, ICanvasRaycastFilter
         {
             public TouchControls Owner;
+
+            /// <summary>
+            /// The pad covers the whole screen. It only catches real touches, so a mouse on a desktop
+            /// browser (or a laptop with a touch screen) is never blocked by it and keeps shooting.
+            /// Keyboard input never goes through the UI and is read in <see cref="GameInput"/>.
+            /// </summary>
+            public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera) =>
+                Application.isMobilePlatform || Input.touchCount > 0;
+
             public void OnPointerDown(PointerEventData e) => Owner.JoystickDown(e);
             public void OnDrag(PointerEventData e) => Owner.JoystickDrag(e);
             public void OnPointerUp(PointerEventData e) => Owner.JoystickUp();

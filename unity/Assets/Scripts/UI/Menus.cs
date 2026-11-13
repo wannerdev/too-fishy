@@ -433,6 +433,15 @@ namespace TooFishy
             if (_panel.gameObject.activeSelf != show) _panel.gameObject.SetActive(show);
             if (!show) return;
 
+            // Godot only has the Continue button; with the game paused behind a dialog a keyboard
+            // player would otherwise be stuck, so Enter (and Space while it pauses) continues too.
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) ||
+                (Dialogs.PausesGame && Input.GetKeyDown(KeyCode.Space)))
+            {
+                Dialogs.Continue();
+                return;
+            }
+
             string from = Dialogs.CurrentFrom;
             _name.text = from;
             Sprite portrait = from == "John" ? GodotAssets.Sprite("textures/characters/john.png")

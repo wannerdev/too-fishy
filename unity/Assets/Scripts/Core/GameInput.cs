@@ -16,6 +16,13 @@ namespace TooFishy
             Application.isMobilePlatform ||
             (Application.platform == RuntimePlatform.WebGLPlayer && Input.touchSupported);
 
+        /// <summary>
+        /// Mouse clicks fire the harpoon on desktops, including desktop browsers and laptops with a
+        /// touch screen (where <see cref="TouchMode"/> is true too). On phones every tap is also
+        /// reported as a mouse click, so there only the on-screen fire button counts.
+        /// </summary>
+        public static bool MouseFireAllowed => !Application.isMobilePlatform && Input.touchCount == 0;
+
         // Written by TouchControls
         public static Vector2 VirtualMove;
         static bool _virtualFire, _virtualBuoy, _virtualDrone, _virtualPickaxe, _virtualInventory, _virtualPause;
@@ -71,18 +78,18 @@ namespace TooFishy
                 aimScreenPos = _virtualAim;
                 return true;
             }
-            if (!TouchMode && Input.GetMouseButtonDown(0) && !IsPointerOverUI())
+            if (MouseFireAllowed && Input.GetMouseButtonDown(0) && !IsPointerOverUI())
             {
                 aimScreenPos = Input.mousePosition;
                 return true;
             }
-            aimScreenPos = _hasVirtualAim ? _virtualAim : (Vector2)Input.mousePosition;
+            aimScreenPos = _hasVirtualAim && !MouseFireAllowed ? _virtualAim : (Vector2)Input.mousePosition;
             return false;
         }
 
         /// <summary>Godot "shoot" action: right mouse button held (AK47s).</summary>
         public static bool VirtualShootHeld;
-        public static bool ShootHeld => VirtualShootHeld || (!TouchMode && Input.GetMouseButton(1) && !IsPointerOverUI());
+        public static bool ShootHeld => VirtualShootHeld || (MouseFireAllowed && Input.GetMouseButton(1) && !IsPointerOverUI());
 
         /// <summary>Godot "inventory_save" action (V): quick save with Inventory Insurance.</summary>
         public static bool ConsumeQuickSave() => Input.GetKeyDown(KeyCode.V);
