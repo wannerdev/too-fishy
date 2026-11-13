@@ -464,29 +464,10 @@ namespace TooFishy.EditorTools
     {
         static bool IsGodot(string path) => path.StartsWith(GodotAssetSync.OutRoot + "/", StringComparison.Ordinal);
 
-        public override uint GetVersion() => 4;
+        // 5: the winding reversal for gestein_*.obj is gone; GodotAssets.SpawnModel now reflects OBJ
+        // models with a negative Z scale, which makes Unity draw them front-face out on its own.
+        public override uint GetVersion() => 5;
 
-        /// <summary>
-        /// The Godot rock meshes (gestein_*.obj) are single-sided shells that Godot draws from the
-        /// outside, but they arrive inside-out through Unity's OBJ importer: with back-face culling
-        /// only thin slivers of them stay visible. Reversing the winding brings the rocks back.
-        /// </summary>
-        void OnPostprocessModel(GameObject root)
-        {
-            if (!IsGodot(assetPath) || !Path.GetFileName(assetPath).StartsWith("gestein_", StringComparison.Ordinal)) return;
-            foreach (var mf in root.GetComponentsInChildren<MeshFilter>())
-            {
-                var mesh = mf.sharedMesh;
-                if (mesh == null) continue;
-                for (int s = 0; s < mesh.subMeshCount; s++)
-                {
-                    var tris = mesh.GetTriangles(s);
-                    for (int i = 0; i + 2 < tris.Length; i += 3)
-                        (tris[i + 1], tris[i + 2]) = (tris[i + 2], tris[i + 1]);
-                    mesh.SetTriangles(tris, s);
-                }
-            }
-        }
         void OnPreprocessModel()
         {
             if (!IsGodot(assetPath)) return;

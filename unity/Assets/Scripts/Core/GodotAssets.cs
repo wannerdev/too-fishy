@@ -34,6 +34,8 @@ namespace TooFishy
             return asset;
         }
 
+        static bool IsObj(string path) => path.EndsWith(".obj", System.StringComparison.OrdinalIgnoreCase);
+
         static string StripExtension(string path)
         {
             int dot = path.LastIndexOf('.');
@@ -43,8 +45,11 @@ namespace TooFishy
 
         /// <summary>
         /// Recreates a Godot MeshInstance3D: a node named <paramref name="name"/> carrying the Godot
-        /// transform, with the imported model below it. Unity's importer mirrors X; the extra 180°
-        /// turn on the model child undoes that together with the Z flip of <see cref="GodotSpace"/>.
+        /// transform, with the imported model below it. Both importers hand over the model in Godot's
+        /// axes but through different handedness: FBX files arrive already mirrored in Z (identity
+        /// fix), OBJ files arrive untouched, so they need the Z flip of <see cref="GodotSpace"/> themselves.
+        /// Measured in Unity 6000.3 against Godot's own vertex data (the submarine's head is at +X in
+        /// the OBJ and must stay there; an earlier 180 degree yaw mirrored every model left to right).
         /// Returns the node carrying the Godot transform.
         /// </summary>
         public static Transform SpawnModel(Transform parent, string name, string modelPath, string material,
@@ -55,11 +60,13 @@ namespace TooFishy
             if (godotTransform != null && godotTransform.Length == 12)
                 GodotSpace.Apply(node, godotTransform);
 
-            // Unity mirrors X on import; the 180° turn plus GodotSpace's Z flip undo that. The
-            // import fix node keeps the prefab's own root transform intact.
+            // The import fix node keeps the prefab's own root transform intact. OBJ meshes are not
+            // converted by Unity, so Godot (x, y, z) -> Unity (x, y, -z) is done with a negative Z scale
+            // (Unity flips the face winding of negatively scaled objects). FBX needs no fix.
             var fix = new GameObject("ImportFix").transform;
             fix.SetParent(node, false);
-            fix.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            fix.localRotation = Quaternion.identity;
+            fix.localScale = IsObj(modelPath) ? new Vector3(1f, 1f, -1f) : Vector3.one;
 
             // gestein_v001.obj (boss section rock) has 344k vertices. Desktop builds use the original;
             // phones and WebGL use the similar gestein_v003 rock, fitted to v001's bounds.
