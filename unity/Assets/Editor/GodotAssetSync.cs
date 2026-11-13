@@ -464,8 +464,8 @@ namespace TooFishy.EditorTools
     {
         static bool IsGodot(string path) => path.StartsWith(GodotAssetSync.OutRoot + "/", StringComparison.Ordinal);
 
-        // 5: the winding reversal for gestein_*.obj is gone; GodotAssets.SpawnModel now reflects OBJ
-        // models with a negative Z scale, which makes Unity draw them front-face out on its own.
+        // 5: the winding reversal for gestein_*.obj is gone. The OBJ importer already maps Godot
+        // (x, y, z) to Unity (x, y, -z) with outward faces, so GodotAssets.SpawnModel uses the mesh as is.
         public override uint GetVersion() => 5;
 
         void OnPreprocessModel()

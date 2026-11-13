@@ -25,9 +25,12 @@ Shader "TooFishy/Lava"
     }
     SubShader
     {
-        // Queue 3010: after the translucent rock overlays (3001), so nothing tints it. Unlit and no fog
-        // pass: lava stays bright however deep the camera is.
-        Tags { "Queue" = "Transparent+10" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
+        // Queue 3000, before the translucent rock overlays (3001), as in Godot: lava_shader_material has
+        // render_priority 0 and the section.tscn overlay render_priority 1, so the overlay covers lava
+        // quads that lie behind a rock face from the camera's view (the shallow quads at 20 m and 40 m,
+        // which Godot shows only as a faint red tint). Unlit and no fog pass: open lava stays bright
+        // however deep the camera is.
+        Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
         Cull Off
         ZWrite Off
         Blend SrcAlpha OneMinusSrcAlpha

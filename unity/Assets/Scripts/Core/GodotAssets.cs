@@ -34,8 +34,6 @@ namespace TooFishy
             return asset;
         }
 
-        static bool IsObj(string path) => path.EndsWith(".obj", System.StringComparison.OrdinalIgnoreCase);
-
         static string StripExtension(string path)
         {
             int dot = path.LastIndexOf('.');
@@ -45,11 +43,13 @@ namespace TooFishy
 
         /// <summary>
         /// Recreates a Godot MeshInstance3D: a node named <paramref name="name"/> carrying the Godot
-        /// transform, with the imported model below it. Both importers hand over the model in Godot's
-        /// axes but through different handedness: FBX files arrive already mirrored in Z (identity
-        /// fix), OBJ files arrive untouched, so they need the Z flip of <see cref="GodotSpace"/> themselves.
-        /// Measured in Unity 6000.3 against Godot's own vertex data (the submarine's head is at +X in
-        /// the OBJ and must stay there; an earlier 180 degree yaw mirrored every model left to right).
+        /// transform, with the imported model below it. Both importers already apply the Z flip of
+        /// <see cref="GodotSpace"/>: OBJ and FBX meshes arrive as Godot (x, y, -z). Measured in Unity
+        /// 6000.3.28f1: gestein_v003.obj has its bounds centre at z = +0.150 in the file (and in Godot)
+        /// and at z = -0.150 in the imported Unity mesh; vains_v003.obj +0.716 / -0.716. An extra
+        /// negative Z scale mirrored every OBJ model front to back, which put the rock faces behind the
+        /// lava quads that Godot hides inside the rocks (the submarine's head stays at +X either way;
+        /// an earlier 180 degree yaw mirrored every model left to right).
         /// Returns the node carrying the Godot transform.
         /// </summary>
         public static Transform SpawnModel(Transform parent, string name, string modelPath, string material,
@@ -60,13 +60,12 @@ namespace TooFishy
             if (godotTransform != null && godotTransform.Length == 12)
                 GodotSpace.Apply(node, godotTransform);
 
-            // The import fix node keeps the prefab's own root transform intact. OBJ meshes are not
-            // converted by Unity, so Godot (x, y, z) -> Unity (x, y, -z) is done with a negative Z scale
-            // (Unity flips the face winding of negatively scaled objects). FBX needs no fix.
+            // The import fix node keeps the prefab's own root transform intact and carries the bounds
+            // fit below. No axis fix: the importers already map Godot (x, y, z) to Unity (x, y, -z).
             var fix = new GameObject("ImportFix").transform;
             fix.SetParent(node, false);
             fix.localRotation = Quaternion.identity;
-            fix.localScale = IsObj(modelPath) ? new Vector3(1f, 1f, -1f) : Vector3.one;
+            fix.localScale = Vector3.one;
 
             // gestein_v001.obj (boss section rock) has 344k vertices. Desktop builds use the original;
             // phones and WebGL use the similar gestein_v003 rock, fitted to v001's bounds.
