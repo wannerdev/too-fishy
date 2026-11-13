@@ -22,10 +22,21 @@ namespace TooFishy
         float _fogT = 1f, _lightT = 1f;
         Camera _cam;
         float _lastAspect;
+        CameraClearFlags _surfaceClearFlags;
+
+        /// <summary>
+        /// Below this camera height the sky must never show. The section backgrounds fade out at
+        /// their top and bottom edges (background_fade.gdshader) and neighbouring sections overlap
+        /// there, so some of whatever is behind them leaks through; Godot shows its sky there and
+        /// below the last section. The first background is opaque up to about y = 0, so the camera
+        /// can hand over to a solid deep-water colour once its view no longer reaches above it.
+        /// </summary>
+        const float SkyCutoffY = -7.5f;
 
         void Start()
         {
             _cam = GetComponent<Camera>();
+            if (_cam != null) _surfaceClearFlags = _cam.clearFlags;
             RenderSettings.fogMode = FogMode.Exponential;
             RenderSettings.fogDensity = FogDensity;
             RenderSettings.fogColor = _fogTo = _fogFrom = StageColor(Stage.Surface);
@@ -62,6 +73,26 @@ namespace TooFishy
             {
                 _lightT = Mathf.Min(1f, _lightT + Time.deltaTime / 3f);
                 Sun.intensity = Mathf.Lerp(_lightFrom, _lightTo, _lightT);
+            }
+
+            UpdateBackdrop();
+        }
+
+        /// <summary>
+        /// Deep down the camera clears to a dark version of the stage's fog colour (it follows the
+        /// 1 s fog tween), so a fading or missing background shows deep water instead of the sky.
+        /// </summary>
+        void UpdateBackdrop()
+        {
+            if (_cam == null) return;
+            if (transform.position.y < SkyCutoffY)
+            {
+                _cam.clearFlags = CameraClearFlags.SolidColor;
+                _cam.backgroundColor = Color.Lerp(RenderSettings.fogColor, Color.black, 0.45f);
+            }
+            else
+            {
+                _cam.clearFlags = _surfaceClearFlags;
             }
         }
 
