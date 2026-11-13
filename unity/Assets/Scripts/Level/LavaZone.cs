@@ -24,6 +24,7 @@ namespace TooFishy
             quad.transform.SetParent(node, false);
             quad.transform.localScale = Vector3.one * 2f;
             var mat = GodotAssets.Material("lava");
+            if (mat != null) mat.renderQueue = 3010; // after the translucent rock overlays (3001)
             quad.GetComponent<Renderer>().sharedMaterial = mat != null ? mat
                 : Materials.Emissive(new Color(1f, 0.25f, 0.05f), new Color(2f, 0.4f, 0.05f));
 

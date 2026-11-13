@@ -14,9 +14,9 @@ Shader "TooFishy/Lava"
     Properties
     {
         _NoiseTex ("Unused (kept for old materials)", 2D) = "gray" {}
-        _CrustColor ("Crust", Color) = (0.17, 0.03, 0.012, 1)
-        _MagmaColor ("Magma", Color) = (1.0, 0.27, 0.02, 1)
-        _CoreColor ("Hot core", Color) = (1.0, 0.82, 0.30, 1)
+        _CrustColor ("Crust", Color) = (0.32, 0.045, 0.008, 1)
+        _MagmaColor ("Magma", Color) = (1.0, 0.36, 0.03, 1)
+        _CoreColor ("Hot core", Color) = (1.0, 0.90, 0.42, 1)
         _Scale ("Pattern scale", Float) = 0.2
         _Speed ("Flow speed", Float) = 1
         _Temperature ("Heat", Float) = 2.2
@@ -25,7 +25,9 @@ Shader "TooFishy/Lava"
     }
     SubShader
     {
-        Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
+        // Queue 3010: after the translucent rock overlays (3001), so nothing tints it. Unlit and no fog
+        // pass: lava stays bright however deep the camera is.
+        Tags { "Queue" = "Transparent+10" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
         Cull Off
         ZWrite Off
         Blend SrcAlpha OneMinusSrcAlpha
@@ -99,7 +101,7 @@ Shader "TooFishy/Lava"
             fixed4 frag(v2f i) : SV_Target
             {
                 float t = _Time.y * _Speed;
-                float2 p = i.world * (_Scale * 2.5);
+                float2 p = i.world * (_Scale * 4.5);
 
                 // slow upwelling plus a domain warp, so the seams crawl and merge like real flow
                 float2 q = p + float2(0.0, -t * 0.10);
@@ -109,22 +111,23 @@ Shader "TooFishy/Lava"
                 float n = fbm(r * 1.3);
 
                 float ridge = 1.0 - abs(n * 2.0 - 1.0);
-                float seams = pow(saturate(ridge), 7.0);
+                float seams = pow(saturate(ridge), 5.0);
                 float heat = fbm(r * 0.55 + float2(0.0, t * 0.04));
                 float breathe = 0.85 + 0.15 * sin(t * 1.7 + heat * 8.0);
                 float hotBias = saturate((_Temperature - 1.0) * 0.18);
-                float hot = saturate(heat * 1.25 + hotBias - 0.1);
+                float hot = saturate(heat * 1.5 + hotBias - 0.32);
 
-                float3 col = lerp(_CrustColor.rgb, _MagmaColor.rgb, saturate(hot * 0.55 + seams * 0.8));
-                col += _MagmaColor.rgb * seams * (0.6 + hot) * breathe * 1.3;
-                col = lerp(col, _CoreColor.rgb * 1.4, saturate(seams * hot * 1.6));
-                col *= _Brightness;
-
+                // the crust is dark orange, never black: seams and hot regions burn through it
+                float glow = saturate(seams * 1.5 + hot * 0.5);
+                float3 col = lerp(_CrustColor.rgb, _MagmaColor.rgb, glow);
+                col += _MagmaColor.rgb * seams * (0.6 + hot) * breathe * 1.1;
+                col = lerp(col, _CoreColor.rgb, saturate(seams * (0.35 + hot) * 1.6));
+                col *= _Brightness * 1.2;
                 // edge: noisy outline with a glowing rim of fresh magma
                 float d = -sdRoundedBox(i.local, i.half2, min(1.0, 0.5 * min(i.half2.x, i.half2.y) * 2.0));
                 float soft = max(0.05, min(_EdgeSoftness, 0.35 * min(i.half2.x, i.half2.y)));
                 float edge = d + (n - 0.5) * soft * 1.4;
-                float alpha = smoothstep(0.0, soft, edge);
+                float alpha = smoothstep(0.0, soft, edge); // 1 everywhere except the ragged rim
                 float rim = 1.0 - smoothstep(0.0, soft * 2.0, edge);
                 col = lerp(col, _MagmaColor.rgb * 1.6 + _CoreColor.rgb * 0.2, rim * 0.55);
 
