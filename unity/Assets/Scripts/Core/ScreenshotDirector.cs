@@ -156,6 +156,13 @@ namespace TooFishy
                     yield return Shot($"lava_{li++}");
                 }
             }
+            // Section seams and the left/right edge of the backgrounds (the old build showed the skybox here)
+            foreach (var (x, y, label) in new[] { (-8f, -37.5f, "seam_x8_y37"), (-26f, -62.5f, "seam_x26_y62"), (-3f, -87.5f, "seam_x3_y87") })
+            {
+                Teleport(x, y);
+                yield return Wait(3.5f);
+                yield return Shot(label);
+            }
             // Deeper stages (clear of the crate rows at -150/-250/-350/-450 m)
             foreach (var (y, label) in new[] { (-135f, "stage_deep_135m"), (-235f, "stage_deeper_235m"), (-335f, "stage_superdeep_335m"), (-435f, "stage_hot_435m"), (-485f, "stage_lava_485m") })
             {
