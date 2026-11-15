@@ -17,6 +17,7 @@ namespace TooFishy
         bool _intro;
         bool _dockOnly;
         bool _touchTest;
+        float[] _lampLevels;
         int _n;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -33,6 +34,10 @@ namespace TooFishy
                 d._intro = System.Array.IndexOf(args, "-tfintro") >= 0;
                 d._dockOnly = System.Array.IndexOf(args, "-tfdock") >= 0;
                 d._touchTest = GameInput.TestTouchUi;
+                int li = System.Array.IndexOf(args, "-tflamp");
+                if (li >= 0 && li + 1 < args.Length)
+                    d._lampLevels = System.Array.ConvertAll(args[li + 1].Split(','),
+                        s => float.Parse(s, System.Globalization.CultureInfo.InvariantCulture));
                 if (!d._intro && GameState.Instance != null) GameState.Instance.EnableIntroMission = false;
                 Directory.CreateDirectory(d._dir);
                 d.StartCoroutine(d.Run());
@@ -237,6 +242,32 @@ namespace TooFishy
             if (_touchTest)
             {
                 yield return TouchTest(gs);
+                Application.Quit(0);
+                yield break;
+            }
+            if (_lampLevels != null)
+            {
+                // -tflamp 0.5,1,2: lamp brightness sweep, compared with godot-ref shot_director.gd run with TF_LAMP=1
+                if (gs.IsIntro()) gs.Level.SkipIntro();
+                yield return Wait(1.5f);
+                yield return SkipDialogs();
+                gs.GodMode = true;
+                foreach (Upgrade u in System.Enum.GetValues(typeof(Upgrade))) gs.Upgrades[u] = GameState.MaxUpgrades[u];
+                Teleport(-3f, 0.5f);
+                yield return Wait(3f);
+                Light lamp = null;
+                foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) if (l.name == "UnlockableLamp") lamp = l;
+                foreach (var level in _lampLevels)
+                {
+                    if (lamp != null) lamp.intensity = level;
+                    foreach (var y in new[] { -12f, -135f, -485f })
+                    {
+                        Teleport(-8f, y);
+                        yield return Wait(3.5f);
+                        yield return Shot($"lamp_{level.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}_{-y:0}m");
+                    }
+                }
+                Log($"lamp found={lamp != null} enabled={(lamp != null && lamp.enabled)}");
                 Application.Quit(0);
                 yield break;
             }

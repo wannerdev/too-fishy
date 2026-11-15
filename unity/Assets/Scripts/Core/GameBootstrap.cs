@@ -15,6 +15,9 @@ namespace TooFishy
         {
             // Phones and WebGL default to 30 fps otherwise
             Application.targetFrameRate = 60;
+            // Godot always prints "4.00"; without this a German phone shows "$4,00" and "4,0 / 200,0".
+            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
 
             Layers.Configure();
             Settings.Load();
@@ -165,7 +168,9 @@ namespace TooFishy
             spot.type = LightType.Spot;
             spot.range = 37.798f;
             spot.spotAngle = 28.444f * 2f; // Godot spot_angle is the half angle
-            spot.intensity = 4f;
+            // Godot light_energy 16 does not map 1:1. At 4 the rock next to the sub was blown out to white
+            // at every depth; 2 matches the Godot brightness of that rock (ScreenshotDirector -tflamp sweep).
+            spot.intensity = 2f;
             spot.color = Color.white;
             spot.enabled = false;
 
