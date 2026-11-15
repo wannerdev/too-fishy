@@ -19,10 +19,17 @@ namespace TooFishy
         class Ring
         {
             public GameObject Root;
+            public RectTransform Rect;
             public Image Fill;
+            public Vector2 Offset;
+            public float Size;
         }
 
         Ring _harpoon, _buoy, _drone, _ak47;
+        float _appliedFov = -1f;
+
+        /// <summary>Camera field of view the Godot offsets were made for (UnderwaterCamera.BaseFov).</summary>
+        const float ReferenceFov = 75f;
 
         public static CooldownRings Create(RectTransform canvas)
         {
@@ -33,14 +40,50 @@ namespace TooFishy
             c._buoy = c.MakeRing(root, "buoy_ring", 12f, 5f, new Vector2(0, 50));
             c._harpoon = c.MakeRing(root, "harpoon_ring", 8f, 4f, new Vector2(100, 160));
             c._drone = c.MakeRing(root, "drone_ring", 8f, 4f, new Vector2(0, 50));
+            c.Layout();
+            UiScale.Changed += c.Layout;
             return c;
+        }
+
+        void OnDestroy() => UiScale.Changed -= Layout;
+
+        /// <summary>
+        /// Godot's offsets are screen pixels at 1080 p next to the submarine, so on a scaled-up canvas
+        /// (<see cref="UiScale.Factor"/> &gt; 1) they shrink with the canvas and follow the camera's
+        /// wider FOV on long phones to stay at the same spot of the sub; the rings themselves only
+        /// shrink as far as world popups do (<see cref="UiScale.WorldTextScale"/>) to stay visible.
+        /// Factor 1 (desktop) keeps the Godot offsets and sizes unchanged.
+        /// </summary>
+        void Layout()
+        {
+            float fov = CameraFov();
+            _appliedFov = fov;
+            float offsetScale = 1f, sizeScale = 1f;
+            if (UiScale.Factor > 1f)
+            {
+                float fovCorrection = Mathf.Tan(ReferenceFov * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+                offsetScale = UiScale.CanvasSize.y / UiScale.RefHeight * fovCorrection;
+                sizeScale = UiScale.WorldTextScale / UiScale.Factor;
+            }
+            foreach (var ring in new[] { _ak47, _buoy, _harpoon, _drone })
+            {
+                Vector2 o = ring.Offset * offsetScale;
+                float size = ring.Size;
+                UiKit.Place(ring.Rect, 0.5f, 0.5f, 0.5f, 0.5f, o.x - size / 2, o.y - size / 2, o.x + size / 2, o.y + size / 2);
+                ring.Rect.localScale = new Vector3(sizeScale, sizeScale, 1f);
+            }
+        }
+
+        static float CameraFov()
+        {
+            var cam = Camera.main;
+            return cam != null && !cam.orthographic ? cam.fieldOfView : ReferenceFov;
         }
 
         Ring MakeRing(RectTransform parent, string name, float radius, float thickness, Vector2 offset)
         {
             float size = (radius + thickness / 2f + 1f) * 2f;
             var rt = UiKit.Rect(parent, name);
-            UiKit.Place(rt, 0.5f, 0.5f, 0.5f, 0.5f, offset.x - size / 2, offset.y - size / 2, offset.x + size / 2, offset.y + size / 2);
 
             var bg = UiKit.Picture(rt, "Background", AnnulusSprite(radius, thickness + 2f, size), false);
             UiKit.Fill(bg.rectTransform);
@@ -52,7 +95,7 @@ namespace TooFishy
             fill.fillMethod = Image.FillMethod.Radial360;
             fill.fillOrigin = (int)Image.Origin360.Top;
             fill.fillClockwise = true;
-            return new Ring { Root = rt.gameObject, Fill = fill };
+            return new Ring { Root = rt.gameObject, Rect = rt, Fill = fill, Offset = offset, Size = size };
         }
 
         static readonly Dictionary<string, Sprite> Cache = new();
@@ -81,6 +124,9 @@ namespace TooFishy
 
         void Update()
         {
+            // UnderwaterCamera widens its FOV after a resize; follow it on scaled canvases
+            if (UiScale.Factor > 1f && !Mathf.Approximately(CameraFov(), _appliedFov)) Layout();
+
             var gs = GameState.Instance;
             var player = gs?.Player;
             if (player == null) return;
@@ -102,26 +148,63 @@ namespace TooFishy
         }
     }
 
-    /// <summary>Port of scenes/ui/boss_health_bar.tscn + boss_health_bar.gd (main_scene placement).</summary>
+    /// <summary>
+    /// Port of scenes/ui/boss_health_bar.tscn + boss_health_bar.gd (main_scene placement: 1515 wide,
+    /// 969..939 above the bottom edge, i.e. y 111..141 on a 1080-tall canvas). A canvas where that
+    /// does not fit (tablet) gets the bar at y 111..141 between the inventory panel and the
+    /// achievement column; a phone-sized canvas gets y 44..62 from x 186 to W-186.
+    /// </summary>
     public class BossHealthBar : MonoBehaviour
     {
         UiKit.ProgressBar _bar;
         GameObject _root;
+        RectTransform _rect;
+        Text _label;
 
         public static BossHealthBar Create(RectTransform canvas)
         {
             var root = UiKit.Rect(canvas, "BossHealthBar");
-            UiKit.Place(root, 0.5f, 1f, 0.5f, 1f, -753, -969, 762, -939);
             var b = canvas.gameObject.AddComponent<BossHealthBar>();
             b._root = root.gameObject;
+            b._rect = root;
             b._bar = new UiKit.ProgressBar(root, "ProgressBar",
                 new StyleBox(new Color(0.6f, 0f, 0f, 0.7f), 1, new Color(1f, 0f, 0f, 0.3f), 4),
                 new StyleBox(new Color(1f, 0f, 0f, 0.8f), 0, null, 4));
             UiKit.Fill(b._bar.Root);
             // boss_health_bar.tscn Label: horizontal and vertical alignment centred
-            UiKit.Fill(UiKit.Label(b._bar.Root, "Label", "Blobfish", 16, UiKit.DefaultText, TextAnchor.MiddleCenter).rectTransform);
+            b._label = UiKit.Label(b._bar.Root, "Label", "Blobfish", 16, UiKit.DefaultText, TextAnchor.MiddleCenter);
+            UiKit.Fill(b._label.rectTransform);
             root.gameObject.SetActive(false);
+            b.Layout();
+            UiScale.Changed += b.Layout;
             return b;
+        }
+
+        void OnDestroy() => UiScale.Changed -= Layout;
+
+        /// <summary>Sizes for the current canvas; runs at creation and on <see cref="UiScale.Changed"/>.</summary>
+        void Layout()
+        {
+            Vector2 canvas = UiScale.CanvasSize;
+            if (UiScale.Compact)
+            {
+                // Phone map: between the inventory panel (x ..180) and the achievements (x W-176..)
+                UiKit.Place(_rect, 0, 0, 1, 0, 186, 44, -186, 62);
+                _label.fontSize = 14;
+            }
+            else if (canvas.x >= 1515f + 16f && canvas.y - 969f >= 105f)
+            {
+                // Godot main_scene.tscn placement (desktop)
+                UiKit.Place(_rect, 0.5f, 1f, 0.5f, 1f, -753, -969, 762, -939);
+                _label.fontSize = 16;
+            }
+            else
+            {
+                // Tablet: same height below the 105-unit HUD, stretched between inv_ui (..198) and
+                // the achievement column (W-190..), so it never leaves a narrower canvas
+                UiKit.Place(_rect, 0, 0, 1, 0, 206, 111, -198, 141);
+                _label.fontSize = 16;
+            }
         }
 
         void Update()
@@ -223,7 +306,9 @@ namespace TooFishy
             var sprite = GodotAssets.Sprite("textures/effects/screen_crack.png");
             if (sprite == null) return;
             float baseSize = _webgl ? 100f : 200f;
-            float size = baseSize * Random.Range(0.5f, 1.5f);
+            // Godot sizes are pixels of a 1080 p screen: on a scaled-up (phone) canvas a crack keeps
+            // the same share of the screen instead of growing with the UI (Factor 1: unchanged)
+            float size = baseSize * Random.Range(0.5f, 1.5f) / UiScale.Factor;
             var rect = _root.rect;
             var img = UiKit.Picture(_root, "CrackLayer", sprite);
             float x = Random.Range(0f, Mathf.Max(0f, rect.width - size));

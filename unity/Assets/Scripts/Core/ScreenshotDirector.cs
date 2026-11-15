@@ -18,6 +18,7 @@ namespace TooFishy
         bool _dockOnly;
         bool _touchTest;
         float[] _lampLevels;
+        bool _uiTour;
         int _n;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -34,6 +35,7 @@ namespace TooFishy
                 d._intro = System.Array.IndexOf(args, "-tfintro") >= 0;
                 d._dockOnly = System.Array.IndexOf(args, "-tfdock") >= 0;
                 d._touchTest = GameInput.TestTouchUi;
+                d._uiTour = System.Array.IndexOf(args, "-tfui") >= 0;
                 int li = System.Array.IndexOf(args, "-tflamp");
                 if (li >= 0 && li + 1 < args.Length)
                     d._lampLevels = System.Array.ConvertAll(args[li + 1].Split(','),
@@ -239,6 +241,12 @@ namespace TooFishy
                 Application.Quit(0);
                 yield break;
             }
+            if (_uiTour)
+            {
+                yield return UiTour(gs);
+                Application.Quit(0);
+                yield break;
+            }
             if (_touchTest)
             {
                 yield return TouchTest(gs);
@@ -429,6 +437,69 @@ namespace TooFishy
                 if (d < bd) { bd = d; best = f; }
             }
             return best;
+        }
+
+        // ---- -tfui: every UI screen once, for checking text sizes (combine with -tfdpi to look like a phone)
+        IEnumerator UiTour(GameState gs)
+        {
+            Log($"UI canvas {UiScale.CanvasSize} factor {UiScale.Factor:0.00} mmPerUnit {UiScale.MmPerUnit:0.000}");
+            if (gs.IsIntro()) gs.Level.SkipIntro();
+            yield return Wait(1.5f);
+            yield return SkipDialogs();
+            gs.GodMode = true;
+            gs.Money = 1234;
+            var types = new[] { FishType.Flamy, FishType.Greeny, FishType.Angler, FishType.Smally, FishType.Spikey };
+            for (int i = 0; i < 8; i++)
+                gs.Inventory.Add(new InventoryItem(types[i % types.Length], 3.5f + i * 2.3f, 12 + i * 9, 900000 + i, i == 2));
+            Teleport(-8f, -45f);
+            yield return Wait(3f);
+            yield return Shot("ui_hud_water");
+
+            Dialogs.SetStage(DialogSection.Tutorial2);
+            yield return Wait(1f);
+            yield return Shot("ui_dialog");
+            yield return SkipDialogs();
+
+            var inv = FindFirstObjectByType<InventoryMenu>(FindObjectsInactive.Include);
+            if (inv != null) { inv.Open(); yield return Wait(1f); yield return Shot("ui_inventory"); inv.Close(); }
+
+            var pause = FindFirstObjectByType<PauseMenu>(FindObjectsInactive.Include);
+            if (pause != null)
+            {
+                pause.Pause(); yield return Wait(0.6f); yield return Shot("ui_pause");
+                pause.OpenSettings(); yield return Wait(0.6f); yield return Shot("ui_settings");
+                foreach (var tab in new[] { "Display", "Controls" })
+                    if (ClickButtonWithText(tab)) { yield return Wait(0.5f); yield return Shot("ui_settings_" + tab.ToLowerInvariant()); }
+                pause.Resume(); pause.Pause();
+                pause.OpenSave(); yield return Wait(0.6f); yield return Shot("ui_save");
+                pause.Resume();
+            }
+
+            Teleport(-3f, 0.5f);
+            yield return Wait(3f);
+            yield return Shot("ui_upgrades");
+
+            Teleport(-8f, -520f);
+            yield return Wait(5f);
+            yield return Shot("ui_boss_dialog");
+            yield return SkipDialogs();
+            yield return Wait(2f);
+            yield return Shot("ui_boss_bar");
+
+            gs.GodMode = false;
+            gs.Damage(1000f);
+            yield return Wait(2f);
+            yield return Shot("ui_death");
+        }
+
+        static bool ClickButtonWithText(string label)
+        {
+            foreach (var b in FindObjectsByType<UnityEngine.UI.Button>(FindObjectsSortMode.None))
+            {
+                var t = b.GetComponentInChildren<UnityEngine.UI.Text>();
+                if (t != null && t.text.Trim() == label && b.gameObject.activeInHierarchy) { b.onClick.Invoke(); return true; }
+            }
+            return false;
         }
 
         static void Teleport(float x, float y)

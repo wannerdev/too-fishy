@@ -52,7 +52,7 @@ namespace TooFishy
                 r.sortingOrder = i == 0 ? 1 : 0; // render_priority 1 over outline_render_priority 0
                 tm.text = text;
                 tm.fontSize = 84;
-                tm.characterSize = 0.025f;
+                tm.characterSize = 0.025f * UiScale.WorldTextScale; // larger on phones (UiScale)
                 tm.anchor = TextAnchor.MiddleCenter;
                 tm.alignment = TextAlignment.Center;
                 tm.color = Color.clear;

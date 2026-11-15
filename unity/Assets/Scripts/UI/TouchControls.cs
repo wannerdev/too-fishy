@@ -9,7 +9,8 @@ namespace TooFishy
     /// scripts/touch_controls.gd: Godot's red shoot button aims at the button itself, so the harpoon
     /// could only ever fly towards the bottom-right corner.
     ///
-    /// - Left half of the screen: a floating joystick (grey base r 100, knob r 50) that starts where
+    /// - Left half of the screen: a floating joystick (grey base r 100, knob r 50 on the desktop
+    ///   canvas; about 9 mm of travel on phones and tablets) that starts where
     ///   a finger lands and follows that finger until it lifts. With the Rotatable Harpoon a quick
     ///   tap there (short, almost no movement) fires at the tapped point, and so does a second
     ///   finger while the joystick is held: Godot turns every touch into a click that aims at the
@@ -17,8 +18,9 @@ namespace TooFishy
     /// - Right half: a tap fires the harpoon at the tapped point, like a mouse click on desktop.
     /// - Every finger is tracked by its pointer id, so the left thumb can steer while the right
     ///   hand taps.
-    /// - The buttons (II, INV in a column under the achievement panel; DIG, GUN, BUOY, SELL, SAVE
-    ///   along the bottom-right edge) sit above the full-screen pad, so the EventSystem hands a
+    /// - The buttons (II, INV in a column under the achievement panel, or at the left edge under the
+    ///   bank/fish/capacity box on phones; DIG, GUN, BUOY, SELL, SAVE along the bottom-right edge,
+    ///   see Layout) sit above the full-screen pad, so the EventSystem hands a
     ///   touch on them to the button and the pad never sees it: such a touch neither fires nor
     ///   starts the joystick. Godot reaches the inventory, buoy, drone, pickaxe, quick save and
     ///   pause only through keys, which a phone does not have (the upgrade-bound ones appear once
@@ -26,11 +28,9 @@ namespace TooFishy
     /// </summary>
     public class TouchControls : MonoBehaviour
     {
-        const float JoystickRadius = 100f;
         const int NoPointer = int.MinValue;
         // A left-half touch shorter and stiller than this is a tap (fires with the Rotatable Harpoon)
         const float TapMaxSeconds = 0.25f;
-        const float TapMaxDrift = 25f; // canvas units
 
         RectTransform _root, _joyBase, _joyKnob;
         int _joyPointer = NoPointer;
@@ -38,7 +38,9 @@ namespace TooFishy
         float _joyDownTime;
         bool _joyMoved;
         Button _pauseBtn, _invBtn, _buoyBtn, _droneBtn, _pickaxeBtn, _gunBtn, _saveBtn;
-        Vector3 _layoutFor;
+        Rect _layoutSafe;
+        // Joystick travel and tap drift in canvas units, set by Layout() (100 / 25 on desktop)
+        float _joyRadius = 100f, _tapDrift = 25f;
 
         public static TouchControls Create(Transform canvasRoot)
         {
@@ -59,10 +61,8 @@ namespace TooFishy
 
             _joyBase = UiKit.Picture(_root, "JoyBase", UiKit.Circle, false).rectTransform;
             _joyBase.GetComponent<Image>().color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
-            _joyBase.sizeDelta = Vector2.one * JoystickRadius * 2f;
             _joyKnob = UiKit.Picture(_root, "JoyKnob", UiKit.Circle, false).rectTransform;
             _joyKnob.GetComponent<Image>().color = new Color(0.7f, 0.7f, 0.7f, 0.7f);
-            _joyKnob.sizeDelta = Vector2.one * 100f;
             foreach (var rt in new[] { _joyBase, _joyKnob })
             {
                 rt.anchorMin = rt.anchorMax = Vector2.zero;
@@ -80,6 +80,9 @@ namespace TooFishy
             _droneBtn = SmallButton("DroneBtn", "SELL", GameInput.PressDrone);
             _saveBtn = SmallButton("SaveBtn", "SAVE", GameInput.PressSave);
             Layout();
+            // Subscribed here, not in OnEnable: the canvas stays hidden until a touch and must
+            // already have the right layout when it appears
+            UiScale.Changed += Layout;
         }
 
         Button SmallButton(string name, string label, UnityEngine.Events.UnityAction onClick) =>
@@ -87,39 +90,101 @@ namespace TooFishy
 
         /// <summary>
         /// Button edge in canvas units for about 9 mm on the real screen (Android's 48 dp touch
-        /// target). The canvas is 1920×1080 "Expand" (GameUI), so one unit is min(w/1920, h/1080)
-        /// pixels. Browsers do not report a real dpi, so there the short screen side counts as a
-        /// phone's (about 70 mm).
+        /// target): 9 mm / <see cref="UiScale.MmPerUnit"/>, about 57 units on phones and tablets,
+        /// where one unit is one dp. The 1920x1080 desktop canvas (Factor 1) keeps its minimum of
+        /// 80 units, so it is sized exactly as before. With no known screen size (a desktop browser)
+        /// the short screen side counts as a phone's (about 70 mm), as before.
         /// </summary>
         static float ButtonSize()
         {
-            float shortSide = Mathf.Min(Screen.width, Screen.height);
-            bool realDpi = Screen.dpi > 0f && Application.platform != RuntimePlatform.WebGLPlayer;
-            float pxPerMm = realDpi ? Screen.dpi / 25.4f : shortSide / 70f;
-            float unitPx = Mathf.Max(0.01f, Mathf.Min(Screen.width / 1920f, Screen.height / 1080f));
-            return Mathf.Clamp(9f * pxPerMm / unitPx, 80f, 150f);
+            float min = UiScale.Factor <= 1.0001f ? 80f : 52f;
+            if (UiScale.MmPerUnit > 0f) return Mathf.Clamp(9f / UiScale.MmPerUnit, min, 150f);
+            float pxPerMm = Mathf.Max(0.01f, Mathf.Min(Screen.width, Screen.height) / 70f);
+            float unitPx = Mathf.Max(0.01f, Mathf.Min(Screen.width / UiScale.RefWidth, Screen.height / UiScale.RefHeight));
+            return Mathf.Clamp(9f * pxPerMm / unitPx * UiScale.Factor, min, 150f);
+        }
+
+        /// <summary>Joystick travel (base radius): about 9 mm on phones and tablets, Godot's 100 units on desktop.</summary>
+        static float JoystickRadiusFor()
+        {
+            if (UiScale.Factor <= 1.0001f || UiScale.MmPerUnit <= 0f) return 100f;
+            return Mathf.Clamp(9f / UiScale.MmPerUnit, 40f, 100f);
+        }
+
+        /// <summary>Screen cut-outs (notch, rounded corners, gesture bar) in canvas units.</summary>
+        static void SafeInsets(Vector2 canvas, out float left, out float right, out float bottom)
+        {
+            left = right = bottom = 0f;
+            if (Screen.width <= 0 || Screen.height <= 0) return;
+            Rect sa = Screen.safeArea;
+            float kx = canvas.x / Screen.width, ky = canvas.y / Screen.height;
+            left = Mathf.Max(0f, sa.xMin) * kx;
+            right = Mathf.Max(0f, Screen.width - sa.xMax) * kx;
+            bottom = Mathf.Max(0f, sa.yMin) * ky;
         }
 
         /// <summary>
-        /// II and INV in a column at the right edge below the achievement panel (main_scene.tscn
-        /// x -190..0, y 105..525); the action buttons in a row along the bottom-right edge, clear of
-        /// the HUD, the boss bar and the centred menus. Every slot stays put when a button is hidden.
+        /// Runs at creation, on <see cref="UiScale.Changed"/> and when the safe area moves.
+        ///
+        /// Desktop and tablet canvases (not <see cref="UiScale.Compact"/>): II and INV in a column at
+        /// the right edge below the achievement panel (main_scene.tscn x -190..0, y 105..525); the
+        /// action buttons in a row along the bottom-right edge, clear of the HUD, the boss bar and the
+        /// centred menus. Everything is anchored to the right edge, so it fits any canvas width; on the
+        /// 1920x1080 canvas it is exactly the old layout.
+        ///
+        /// Phones (Compact, shared phone screen map): II and INV stacked at the left edge below InvUi
+        /// (x 6..62, y 120..), the action row (DIG, GUN, BUOY, SELL, SAVE) along the bottom-right edge
+        /// with an 8-unit margin; both moved inwards by the screen's safe-area insets.
+        ///
+        /// Every slot stays put when a button is hidden.
         /// </summary>
         void Layout()
         {
-            _layoutFor = new Vector3(Screen.width, Screen.height, Screen.dpi);
-            float s = ButtonSize(), w = s * 1.1f;
-            const float gap = 14f, margin = 20f, columnTop = 540f;
-            int font = Mathf.RoundToInt(s * 0.24f);
+            _layoutSafe = Screen.safeArea;
+            Vector2 canvas = UiScale.CanvasSize;
+            float s = ButtonSize();
 
-            Place(_pauseBtn, 1, 0, -margin - w, columnTop, -margin, columnTop + s, font);
-            Place(_invBtn, 1, 0, -margin - w, columnTop + s + gap, -margin, columnTop + 2 * s + gap, font);
+            _joyRadius = JoystickRadiusFor();
+            _tapDrift = _joyRadius * 0.25f; // 25 units for the desktop radius of 100
+            _joyBase.sizeDelta = Vector2.one * _joyRadius * 2f;
+            _joyKnob.sizeDelta = Vector2.one * _joyRadius;
 
-            float right = -margin;
-            foreach (var b in new[] { _pickaxeBtn, _gunBtn, _buoyBtn, _droneBtn, _saveBtn })
+            if (UiScale.Compact)
             {
-                Place(b, 1, 1, right - w, -margin - s, right, -margin, font);
-                right -= w + gap;
+                const float gap = 8f, edge = 6f, margin = 8f, columnTop = 120f;
+                SafeInsets(canvas, out float insetL, out float insetR, out float insetB);
+                // The column must end above the bottom margin (only matters on very small canvases)
+                s = Mathf.Max(44f, Mathf.Min(s, (canvas.y - margin - insetB - columnTop - gap) * 0.5f));
+                int font = Mathf.Max(14, Mathf.RoundToInt(s * 0.24f));
+
+                float x0 = edge + insetL;
+                Place(_pauseBtn, 0, 0, x0, columnTop, x0 + s, columnTop + s, font);
+                Place(_invBtn, 0, 0, x0, columnTop + s + gap, x0 + s, columnTop + 2 * s + gap, font);
+
+                float right = -margin - insetR, bottom = -margin - insetB;
+                foreach (var b in new[] { _pickaxeBtn, _gunBtn, _buoyBtn, _droneBtn, _saveBtn })
+                {
+                    Place(b, 1, 1, right - s, bottom - s, right, bottom, font);
+                    right -= s + gap;
+                }
+            }
+            else
+            {
+                float w = s * 1.1f;
+                const float gap = 14f, margin = 20f;
+                // Below the achievement panel; moves up only if the column would reach the row (never at 1080)
+                float columnTop = Mathf.Min(540f, canvas.y - margin - s - gap - (2 * s + gap) - gap);
+                int font = Mathf.Max(14, Mathf.RoundToInt(s * 0.24f));
+
+                Place(_pauseBtn, 1, 0, -margin - w, columnTop, -margin, columnTop + s, font);
+                Place(_invBtn, 1, 0, -margin - w, columnTop + s + gap, -margin, columnTop + 2 * s + gap, font);
+
+                float right = -margin;
+                foreach (var b in new[] { _pickaxeBtn, _gunBtn, _buoyBtn, _droneBtn, _saveBtn })
+                {
+                    Place(b, 1, 1, right - w, -margin - s, right, -margin, font);
+                    right -= w + gap;
+                }
             }
         }
 
@@ -132,7 +197,7 @@ namespace TooFishy
 
         void Update()
         {
-            if (_layoutFor != new Vector3(Screen.width, Screen.height, Screen.dpi)) Layout();
+            if (Screen.safeArea != _layoutSafe) Layout(); // a landscape flip moves the notch to the other side
             var gs = GameState.Instance;
             if (gs == null) return;
             _buoyBtn.gameObject.SetActive(gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0);
@@ -196,11 +261,11 @@ namespace TooFishy
             if (pointerId != _joyPointer) return;
             Vector2 origin = _joyBase.anchoredPosition;
             Vector2 offset = ToLocal(screenPos, cam) - origin;
-            if (offset.sqrMagnitude > TapMaxDrift * TapMaxDrift) _joyMoved = true;
-            Vector2 d = Vector2.ClampMagnitude(offset, JoystickRadius);
+            if (offset.sqrMagnitude > _tapDrift * _tapDrift) _joyMoved = true;
+            Vector2 d = Vector2.ClampMagnitude(offset, _joyRadius);
             _joyKnob.anchoredPosition = origin + d;
             // Dead zone = the tap drift: a quick tap that fires must not also nudge the sub
-            GameInput.VirtualMove = _joyMoved ? d / JoystickRadius : Vector2.zero;
+            GameInput.VirtualMove = _joyMoved ? d / _joyRadius : Vector2.zero;
         }
 
         public void PadUp(int pointerId)
@@ -219,6 +284,8 @@ namespace TooFishy
             _joyKnob.gameObject.SetActive(false);
             GameInput.VirtualMove = Vector2.zero;
         }
+
+        void OnDestroy() => UiScale.Changed -= Layout;
 
         void OnDisable()
         {

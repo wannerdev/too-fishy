@@ -70,6 +70,8 @@ namespace TooFishy
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
             scaler.referencePixelsPerUnit = 100;
+            UiScale.Register(scaler); // device-aware size: 1 unit = 1 dp on phones (UiScale)
+            if (FindFirstObjectByType<UiScaleDriver>() == null) go.AddComponent<UiScaleDriver>();
             return (RectTransform)go.transform;
         }
 
