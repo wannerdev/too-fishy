@@ -183,7 +183,10 @@ namespace TooFishy.EditorTools
             if (!string.IsNullOrWhiteSpace(versionName)) PlayerSettings.bundleVersion = versionName;
             PlayerSettings.Android.forceInternetPermission = false;
             PlayerSettings.Android.forceSDCardPermission = false;
-            PlayerSettings.Android.renderOutsideSafeArea = false;
+            // Godot runs fullscreen with no status bar. Unity (6000.3, UnityPlayer.applyWindowUIChanges) hides the
+            // status bar only when rendering outside the safe area; otherwise it shows it again on every focus and
+            // resume, which took 74 px off the top on a Pixel 7a. TouchControls keeps its buttons in Screen.safeArea.
+            PlayerSettings.Android.renderOutsideSafeArea = true;
         }
 
         /// <summary>Returns true when a release keystore was configured. Never logs the credentials.</summary>
