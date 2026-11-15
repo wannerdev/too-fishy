@@ -407,6 +407,8 @@ namespace TooFishy
                 }
                 yield return Wait(1.2f);
                 yield return Shot($"boss_fight_{k + 1}");
+                boss = BossController.Current;
+                Log(boss != null ? $"boss at {boss.transform.position} active={boss.gameObject.activeInHierarchy}" : "no boss");
                 yield return SkipDialogs();
             }
             Log("done");

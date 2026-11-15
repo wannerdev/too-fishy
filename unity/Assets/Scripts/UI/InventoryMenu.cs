@@ -21,8 +21,13 @@ namespace TooFishy
         Text _count, _weight, _value;
         Button _sellDrone;
         bool _dirty = true;
+        bool _droneReadyShown;
+        static InventoryMenu _current;
 
         public bool IsOpen => _panel.gameObject.activeSelf;
+
+        /// <summary>Godot inventory_menu.visible, read by player.gd is_mouse_over_ui() to block throws.</summary>
+        public static bool AnyOpen => _current != null && _current._panel != null && _current.IsOpen;
 
         public static InventoryMenu Create(RectTransform canvas)
         {
@@ -30,6 +35,7 @@ namespace TooFishy
             UiKit.BlockRaycasts(panel);
             UiKit.Centered(panel.rectTransform, 800, 600);
             var menu = canvas.gameObject.AddComponent<InventoryMenu>();
+            _current = menu;
             menu._panel = panel.rectTransform;
             menu.Build();
             panel.gameObject.SetActive(false);
@@ -109,6 +115,11 @@ namespace TooFishy
             if (GameState.Instance != null) GameState.Instance.OnInventoryUpdated -= MarkDirty;
         }
 
+        void OnDestroy()
+        {
+            if (_current == this) _current = null;
+        }
+
         void MarkDirty() => _dirty = true;
 
         public void Toggle()
@@ -127,7 +138,19 @@ namespace TooFishy
 
         void Update()
         {
+            // Re-enable Sell Drone once the drone cooldown ends or the sub leaves the dock
+            if (IsOpen && DroneReady() != _droneReadyShown) _dirty = true;
             if (IsOpen && _dirty) Refresh();
+        }
+
+        /// <summary>
+        /// ActivateSellingDrone() ignores presses during the cooldown or while docked (the Q path of
+        /// player.gd:291-293); the button shows that instead of doing nothing when pressed.
+        /// </summary>
+        static bool DroneReady()
+        {
+            var gs = GameState.Instance;
+            return gs == null || gs.Player == null || gs.Player.DroneReady;
         }
 
         void Refresh()
@@ -155,7 +178,8 @@ namespace TooFishy
 
             bool drone = gs.GetUpgradeLevel(Upgrade.DroneSelling) > 0 && !gs.IsIntro();
             _sellDrone.gameObject.SetActive(drone);
-            _sellDrone.interactable = inv.Items.Count > 0;
+            _droneReadyShown = DroneReady();
+            _sellDrone.interactable = inv.Items.Count > 0 && _droneReadyShown;
         }
 
         void FishCard(List<InventoryItem> stack)

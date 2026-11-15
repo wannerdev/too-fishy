@@ -18,6 +18,32 @@ namespace TooFishy
         PlayerController _player;
         readonly List<(Transform fish, Vector3 from, Vector3 to, float duration)> _fish = new();
 
+        /// <summary>Drones in flight; save/load must know about them (player.gd:728 vs :756).</summary>
+        static readonly List<DroneRun> Active = new();
+
+        /// <summary>Money of the catch already sold but not yet paid out (player.gd:756 tween).</summary>
+        public static int PendingMoney
+        {
+            get { int s = 0; foreach (var r in Active) s += r._sold; return s; }
+        }
+
+        /// <summary>A save is loaded: drop every drone in flight without paying it out.</summary>
+        public static void CancelAll()
+        {
+            foreach (var r in Active.ToArray())
+            {
+                r._sold = 0;
+                foreach (var f in r._fish)
+                    if (f.fish != null) Destroy(f.fish.gameObject);
+                r.enabled = false;
+                Destroy(r.gameObject);
+            }
+            Active.Clear();
+        }
+
+        void OnEnable() => Active.Add(this);
+        void OnDisable() => Active.Remove(this);
+
         public static void Launch(PlayerController player, GameState gs)
         {
             var items = new List<InventoryItem>(gs.Inventory.Items);
@@ -80,12 +106,14 @@ namespace TooFishy
 
             if (_t < _duration) return;
             var gs = GameState.Instance;
-            if (gs != null) gs.Money += _sold;
-            if (_sold > 0)
+            int sold = _sold;
+            _sold = 0; // paid: no longer pending for a save in the rest of this frame
+            if (gs != null) gs.Money += sold;
+            if (sold > 0)
             {
                 SoundPlayer.Play("coins");
                 var popup = _player != null && _player.PopupSpawn != null ? _player.PopupSpawn.position : transform.position;
-                PopupText.Show("Drone sold all fish for $" + _sold, popup, Color.green);
+                PopupText.Show("Drone sold all fish for $" + sold, popup, Color.green);
             }
             foreach (var f in _fish)
                 if (f.fish != null) Destroy(f.fish.gameObject);

@@ -49,7 +49,9 @@ namespace TooFishy
             var d = player.position - center;
             d.z = 0f;
             bool inside = d.magnitude <= AreaRadius + 0.5f;
-            if (inside && !_following && Dialogs.Section != DialogSection.FriendRescued)
+            // friend.gd:4-8 replays FRIEND_RESCUED on every re-entry; once the game is won the
+            // ending dialogs are not reopened (the friend parks by the dock on every sell trip)
+            if (inside && !_following && !Dialogs.WinReached && Dialogs.Section != DialogSection.FriendRescued)
                 Dialogs.SetStage(DialogSection.FriendRescued);
             _following = inside;
             if (!_following) return;
@@ -61,7 +63,8 @@ namespace TooFishy
             if (transform.position.y >= -5f)
             {
                 BossController.Remove();
-                if (Dialogs.Section != DialogSection.Win)
+                // friend.gd:24-25, but WIN plays only once
+                if (!Dialogs.WinReached)
                     Dialogs.SetStage(DialogSection.Win);
             }
         }

@@ -121,6 +121,21 @@ namespace TooFishy
                 StartNormalMode();
         }
 
+        // Phones: autosave when the app is backgrounded or quit, since the OS kills apps without
+        // warning. Godot only saves by hand (save_menu.gd:94, player.gd:284). Mobile apps only.
+        static bool IsMobileApp =>
+            Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer;
+
+        void OnApplicationPause(bool paused)
+        {
+            if (paused && IsMobileApp && Instance == this) SaveSystem.TryAutoSave();
+        }
+
+        void OnApplicationQuit()
+        {
+            if (IsMobileApp && Instance == this) SaveSystem.TryAutoSave();
+        }
+
         public void NotifyInventoryUpdated()
         {
             Achievements.OnInventoryUpdated(Inventory);

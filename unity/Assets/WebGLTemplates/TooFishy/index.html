@@ -99,7 +99,8 @@
       // If you would like all file writes inside Unity Application.persistentDataPath
       // directory to automatically persist so that the contents are remembered when
       // the user revisits the site the next time, uncomment the following line:
-      // config.autoSyncPersistentDataPath = true;
+      // Too Fishy: on, so savegame.save survives a reload (Godot syncs user:// to IndexedDB).
+      config.autoSyncPersistentDataPath = true;
       // This autosyncing is currently not the default behavior to avoid regressing
       // existing user projects that might rely on the earlier manual
       // JS_FileSystem_Sync() behavior, but in future Unity version, this will be

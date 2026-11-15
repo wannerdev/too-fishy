@@ -32,9 +32,19 @@ namespace TooFishy
             public float Y;
             public float RespawnTimer;
             public readonly Dictionary<FishType, float> Cooldowns = new();
+            /// <summary>Fish home id, stable while the section streams out and back (Godot's section instance id).</summary>
+            public int Home;
+            /// <summary>Time.time when streaming last removed the section, -1 while it is built.</summary>
+            public float DestroyedAt = -1f;
         }
 
         readonly Dictionary<int, SectionState> _sections = new();
+        // Godot never frees a section: every section ever built keeps its state (fish home, respawn
+        // timer, cooldowns) here while streaming has removed its objects.
+        readonly Dictionary<int, SectionState> _sectionMemory = new();
+        int _nextHome = 1; // FishBehaviour.Spawn's default home is 0
+        // level.gd:14 lastSpawned: the deepest section Godot has spawned so far
+        float _deepestSpawnedY = -35f;
         // Sections replaced by the boss section's own sections: index -> background
         readonly Dictionary<int, string> _bossSections = new();
         Transform _bossSectionRoot;
@@ -85,23 +95,39 @@ namespace TooFishy
 
         void UpdateSections(float playerY)
         {
+            // level.gd:27-28,162-163: a new section 25 m below lastSpawned once the player is below
+            // lastSpawned; fishes_lower_boarder = lastSpawned - sectionHeight / 2 - 1 follows the deepest
+            // section and never moves back up.
+            bool spawnedDeeper = false;
+            while (playerY < _deepestSpawnedY)
+            {
+                _deepestSpawnedY -= SectionHeight;
+                spawnedDeeper = true;
+            }
+            if (spawnedDeeper && GameState.Instance != null)
+                GameState.Instance.FishesLowerBorder = _deepestSpawnedY - SectionHeight / 2f - 1f;
+
             int first = IndexAt(playerY + ViewDistance);
             int last = IndexAt(playerY - ViewDistance);
+            // Nothing below lastSpawned exists in Godot (its fish would sit below the lower border);
+            // only the boss section (one scene in Godot, spawned whole) reaches further down.
+            int deepest = IndexAt(_deepestSpawnedY);
             for (int i = first; i <= last; i++)
-                if (!_sections.ContainsKey(i)) SpawnSection(i);
+                if (!_sections.ContainsKey(i) && (i <= deepest || _bossSections.ContainsKey(i))) SpawnSection(i);
 
             _toRemove.Clear();
             foreach (var kv in _sections)
-                if (kv.Value.Root == null || kv.Key < first - 1 || kv.Key > last + 1) _toRemove.Add(kv.Key);
+                if (kv.Value.Root == null || kv.Key < first - 1 || kv.Key > last + 1 ||
+                    (kv.Key > deepest && !_bossSections.ContainsKey(kv.Key)))
+                    _toRemove.Add(kv.Key);
             foreach (int i in _toRemove)
             {
-                if (_sections[i].Root != null) Destroy(_sections[i].Root);
+                var state = _sections[i];
+                if (state.Root != null) Destroy(state.Root);
+                state.Root = null;
+                state.DestroyedAt = Time.time;
                 _sections.Remove(i);
             }
-
-            // level.gd: fishes_lower_boarder = lastSpawned - sectionHeight / 2 - 1
-            if (GameState.Instance != null)
-                GameState.Instance.FishesLowerBorder = SectionY(last) - SectionHeight / 2f - 1f;
         }
 
         void SpawnSection(int index)
@@ -119,7 +145,15 @@ namespace TooFishy
             var root = new GameObject(name ?? $"Section_{stage}_{Mathf.RoundToInt(-y)}m");
             root.transform.SetParent(_worldRoot, false);
             root.transform.position = new Vector3(0f, y, 0f);
-            var state = new SectionState { Root = root, Type = stage, Y = y, RespawnTimer = FishRespawnInterval };
+            bool rebuilt = _sectionMemory.TryGetValue(key, out var state);
+            if (!rebuilt)
+            {
+                state = new SectionState { RespawnTimer = FishRespawnInterval, Home = _nextHome++ };
+                _sectionMemory[key] = state;
+            }
+            state.Root = root;
+            state.Type = stage;
+            state.Y = y;
             _sections[index] = state;
 
             BuildBackground(root.transform, background);
@@ -130,16 +164,42 @@ namespace TooFishy
             BuildRockWall(root.transform, "LeftWall2", veins,
                 -0.840678f, 0f, -0.630943f, 0f, 1.36003f, 0f, 0.5876f, 0f, -0.902689f, 2.58816f, 1.37305f, 1.14596f);
 
-            if (barriers) AddBarrierBoxes(root.transform, index, y, stage, lastStage);
+            if (barriers) AddCrateRow(root.transform, index);
             // main_scene.tscn: FirstSection has particles_enabled = false; Godot never shows them on the web
             if (key != 0 && Application.platform != RuntimePlatform.WebGLPlayer) SectionParticles.Add(root.transform);
-            SpawnFish(state, spawnAll: true);
+            // section.gd:256 spawn_fish(true) runs once, in _ready; a section streamed back in only gets
+            // what its FishRespawnTimer would have added meanwhile
+            if (rebuilt) CatchUpFishRespawn(state);
+            else SpawnFish(state, int.MaxValue);
+        }
+
+        /// <summary>
+        /// section.gd:317-319: while streaming had removed the section it was off screen, so every
+        /// 15 s FishRespawnTimer tick of that time adds one fish (up to max_fish_amount); the type
+        /// cooldowns kept running too.
+        /// </summary>
+        void CatchUpFishRespawn(SectionState state)
+        {
+            float elapsed = state.DestroyedAt >= 0f ? Time.time - state.DestroyedAt : 0f;
+            state.DestroyedAt = -1f;
+            if (elapsed <= 0f) return;
+            TickCooldowns(state, elapsed);
+            int ticks = 0;
+            if (elapsed >= state.RespawnTimer)
+            {
+                float after = elapsed - state.RespawnTimer;
+                ticks = 1 + Mathf.FloorToInt(after / FishRespawnInterval);
+                state.RespawnTimer = FishRespawnInterval - after % FishRespawnInterval;
+            }
+            else
+                state.RespawnTimer -= elapsed;
+            if (ticks > 0) SpawnFish(state, ticks);
         }
 
         Stage StageOf(int index) => _bossSections.ContainsKey(index) ? Stage.Void : StageAt(index);
 
         /// <summary>
-        /// level.gd spawnBoss(): scenes/boss_section.tscn 25 m below the lowest section — three
+        /// level.gd spawnBoss(): scenes/boss_section.tscn one section below lastSpawned (the player's section) — three
         /// VOID sections (lava, lava, lava→void backgrounds) with the friend, two rocks, two crates
         /// and lava. The extras stay for the rest of the game; the sections stream as usual.
         /// </summary>
@@ -157,9 +217,10 @@ namespace TooFishy
             }
             else
             {
-                var player = GameState.Instance?.PlayerTransform;
-                float playerY = player != null ? player.position.y : -500f;
-                int top = IndexAt(playerY) + 2;
+                // level.gd:180 mPosition = lastSpawned - sectionHeight: one section below the deepest
+                // spawned one, i.e. below the player's section at the 500 m trigger (Godot then respawns
+                // normal sections on top of it; the port replaces them)
+                int top = IndexAt(_deepestSpawnedY) + 1;
                 for (int i = 0; i < 3; i++)
                 {
                     _bossSections[top + i] = bgs[i];
@@ -168,9 +229,15 @@ namespace TooFishy
                         if (existing.Root != null) Destroy(existing.Root);
                         _sections.Remove(top + i);
                     }
+                    _sectionMemory.Remove(top + i); // a different section from now on
                 }
                 topY = SectionY(top);
             }
+
+            // level.gd:188-189 lastSpawned = mPosition + 50, and the lower border with it
+            _deepestSpawnedY = topY + 2f * SectionHeight;
+            if (GameState.Instance != null)
+                GameState.Instance.FishesLowerBorder = _deepestSpawnedY - SectionHeight / 2f - 1f;
 
             var root = new GameObject("BossSection").transform;
             root.SetParent(_worldRoot, false);
@@ -197,9 +264,9 @@ namespace TooFishy
                 -0.986472f, -0.161673f, 0.0270993f, -0.161543f, 0.986841f, 0.00693622f, -0.0278641f, 0.00246467f, -0.999609f, 4.14006f, 0.675316f, 1.17944f);
             RockCollider(rock2, new Vector3(0.396845f, 4.71446f, -0.160854f));
 
-            // DestroyableBarier ×2 (scene default health 10)
-            DestroyableBarrier.Create(root, root.TransformPoint(GodotSpace.Pos(-21.0308f, -35.9612f, -0.33f)), 10, -1);
-            DestroyableBarrier.Create(root, root.TransformPoint(GodotSpace.Pos(-20.7442f, -54.631f, -0.33f)), 10, -2);
+            // DestroyableBarier ×2 (boss_section.tscn:111-120 overrides max_health / current_health = 1)
+            DestroyableBarrier.Create(root, root.TransformPoint(GodotSpace.Pos(-21.0308f, -35.9612f, -0.33f)), 1, -1);
+            DestroyableBarrier.Create(root, root.TransformPoint(GodotSpace.Pos(-20.7442f, -54.631f, -0.33f)), 1, -2);
 
             // Lava_side and a chain of three lava pools
             LavaZone.Create(root, "Lava_side", true, 1.52204f, 0f, 0f, 0f, 1.40241f, 0f, 0f, 0f, 1f, -5.79982f, -5.23136f, 7.79199f);
@@ -236,6 +303,7 @@ namespace TooFishy
                 string bg = last == Stage.Hot && stage == Stage.Lava ? "bg_deep_to_lava" : stage >= Stage.Lava ? "bg_lava" : "bg_loop";
                 SpawnSectionAt(IntroKey + i, y, stage, last, bg, false, "IntroSection_" + names[i]);
             }
+            _deepestSpawnedY = -525f; // level.gd:145 lastSpawned = -525
             if (GameState.Instance != null) GameState.Instance.FishesLowerBorder = -525f - SectionHeight / 2f - 1f;
 
             _introRoot = new GameObject("IntroMission").transform;
@@ -288,6 +356,7 @@ namespace TooFishy
 
             if (player != null) player.SwitchToNormalSubmarine();
             gs.PendingRegularDeathTransition = regularDeathAfter;
+            _deepestSpawnedY = -35f; // level.gd:213 (the lower border keeps its value until the next section)
             if (player != null) UpdateSections(player.transform.position.y);
         }
 
@@ -296,6 +365,7 @@ namespace TooFishy
             foreach (var kv in _sections)
                 if (kv.Value.Root != null) Destroy(kv.Value.Root);
             _sections.Clear();
+            _sectionMemory.Clear();
             foreach (var fish in GetComponentsInChildren<FishBehaviour>())
                 Destroy(fish.gameObject);
         }
@@ -363,6 +433,22 @@ namespace TooFishy
             col.size = new Vector3(4.19824f, 19.4489f, 13.8901f);
         }
 
+        /// <summary>
+        /// section.gd:213,233-239 computes the crate row's y as position.y + 10 but assigns it as a
+        /// *local* position of the section, so the row of section k sits at 2·y + 10 in the world:
+        /// the centre of section 2k (310 / 510 / 710 / 910 / 1110 m). With streaming, the row is built
+        /// with the section it lies in, still keyed by section k (same DestroyedBarriers keys).
+        /// </summary>
+        void AddCrateRow(Transform host, int hostIndex)
+        {
+            if (hostIndex < 4 || hostIndex % 2 != 0) return;
+            int k = hostIndex / 2;
+            // level.gd:155 lastSectionType = the stage of the section spawned before. The normal stage,
+            // also where the boss section replaced section k: level.gd:27-28,188 respawns normal
+            // sections over the boss section, so Godot still gets k's row (the LAVA->VOID row at 1110 m).
+            AddBarrierBoxes(host, k, SectionY(k), StageAt(k), StageAt(k - 1));
+        }
+
         /// <summary>section.gd add_barrier_boxes(): nine crates across the play area at a stage change.</summary>
         static void AddBarrierBoxes(Transform section, int index, float y, Stage stage, Stage lastStage)
         {
@@ -387,29 +473,32 @@ namespace TooFishy
                 _ => 1
             };
 
-            // Godot computes the row's y as position.y + 10 but assigns it as a *local* position
-            // of the section, which puts the crates at 2·y + 10. The port uses the intended spot,
-            // 10 m above the section centre.
+            // Godot's row lands at 2·y + 10 (see AddCrateRow); the port matches that on purpose
             const int count = 9;
             float spacing = Mathf.Abs(RightBarrierX - LeftBarrierX) / (count - 1);
             for (int i = 0; i < count; i++)
             {
                 int key = index * 16 + i;
                 if (gs.DestroyedBarriers.Contains(key)) continue;
-                var pos = GodotSpace.Pos(LeftBarrierX + spacing * i, y + 10f, -0.5f);
+                var pos = GodotSpace.Pos(LeftBarrierX + spacing * i, 2f * y + 10f, -0.5f);
                 DestroyableBarrier.Create(section, pos, health, key);
             }
         }
 
         // ------------------------------------------------------------------ fish
 
-        /// <summary>section.gd spawn_fish(): fill up to max_fish_amount (or add one) with the caps applied.</summary>
-        void SpawnFish(SectionState section, bool spawnAll)
+        /// <summary>
+        /// section.gd spawn_fish(): fill up to max_fish_amount (spawn_all) or add one, with the caps
+        /// applied; <paramref name="limit"/> is how many fish may be added at most.
+        /// </summary>
+        void SpawnFish(SectionState section, int limit)
         {
             var gs = GameState.Instance;
-            if (gs == null || !FishConfig.Sections.TryGetValue(section.Type, out var cfg)) return;
+            if (limit <= 0 || gs == null || !FishConfig.Sections.TryGetValue(section.Type, out var cfg)) return;
 
-            int home = section.Root.GetInstanceID();
+            // section.gd:76-78 counts fish by home == section instance id: a stable id per section
+            int home = section.Home;
+            int added = 0;
             var perSection = new Dictionary<FishType, int>();
             var global = new Dictionary<FishType, int>();
             int amount = 0;
@@ -464,7 +553,7 @@ namespace TooFishy
                 perSection[type] = perSection.GetValueOrDefault(type) + 1;
                 global[type] = global.GetValueOrDefault(type) + 1;
                 amount++;
-                if (!spawnAll) break;
+                if (++added >= limit) break;
             }
         }
 
@@ -475,23 +564,27 @@ namespace TooFishy
             foreach (var section in _sections.Values)
             {
                 if (section.Root == null) continue;
-                if (section.Cooldowns.Count > 0)
-                {
-                    var keys = new List<FishType>(section.Cooldowns.Keys);
-                    foreach (var k in keys)
-                    {
-                        float left = section.Cooldowns[k] - dt;
-                        if (left <= 0f) section.Cooldowns.Remove(k);
-                        else section.Cooldowns[k] = left;
-                    }
-                }
+                TickCooldowns(section, dt);
 
                 section.RespawnTimer -= dt;
                 if (section.RespawnTimer > 0f) continue;
                 section.RespawnTimer = FishRespawnInterval;
                 // VisibleOnScreenNotifier: AABB y ±12.5 around the section; the camera sees about ±8
                 bool onScreen = Mathf.Abs(playerY - section.Y) < 12.5f + 8f;
-                if (!onScreen) SpawnFish(section, spawnAll: false);
+                if (!onScreen) SpawnFish(section, 1);
+            }
+        }
+
+        /// <summary>section.gd:59-68: per-type spawn cooldowns run down and expire.</summary>
+        static void TickCooldowns(SectionState section, float dt)
+        {
+            if (section.Cooldowns.Count == 0) return;
+            var keys = new List<FishType>(section.Cooldowns.Keys);
+            foreach (var k in keys)
+            {
+                float left = section.Cooldowns[k] - dt;
+                if (left <= 0f) section.Cooldowns.Remove(k);
+                else section.Cooldowns[k] = left;
             }
         }
 

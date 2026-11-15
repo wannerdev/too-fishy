@@ -17,6 +17,9 @@ namespace TooFishy
         enum State { Cooldown, Charging, Preparing, OutOfRange, SpawningZones }
 
         public static bool IsDefeated { get; private set; }
+
+        /// <summary>Loading a save where the friend was already rescued: the boss stays gone (boss.gd boss_defeated_permanently).</summary>
+        public static void MarkDefeatedFromSave() => IsDefeated = true;
         public static bool HasSpawned { get; private set; }
         /// <summary>The living boss, if any (boss health bar).</summary>
         public static BossController Current { get; private set; }
@@ -37,6 +40,7 @@ namespace TooFishy
         Vector3 _chargeDir, _spawnPos;
         bool _hasHitPlayer, _inRange = true;
         Transform _pivot;
+        SphereCollider _col;
         Renderer[] _renderers;
         MaterialPropertyBlock _mpb;
         readonly List<(MindControlZone zone, float age)> _zones = new();
@@ -72,10 +76,11 @@ namespace TooFishy
             boss.HealthF = boss.MaxHealth;
             boss._spawnPos = go.transform.position;
             boss._pivot = pivot;
+            boss._col = col;
             boss._renderers = pivot.GetComponentsInChildren<Renderer>();
             Current = boss;
 
-            // level.gd: the boss section (friend, rocks, crates, lava) 25 m below the lowest section
+            // level.gd: the boss section (friend, rocks, crates, lava) one section below the player's section
             gs.Level?.SpawnBossSection();
 
             // boss.gd setBossSpawned()
@@ -173,13 +178,79 @@ namespace TooFishy
             }
         }
 
+        static readonly RaycastHit[] CastHits = new RaycastHit[16];
+        // Everything a Godot layer-1 body would be: not the harpoon/bullets or the player's fish sensors
+        const int MoveMask = ~((1 << Layers.Projectile) | (1 << Layers.PlayerSensor));
+        const float Skin = 0.01f;
+
+        /// <summary>
+        /// boss_character.gd:76/124 move_and_slide(): the sphere (boss.tscn r 1.51) is swept against
+        /// rocks, walls, crates, fish and the submarine's hull and slides along what it hits.
+        /// </summary>
         void Move(Vector3 delta)
         {
-            var p = transform.position + delta;
+            var pos = transform.position;
+            var remaining = delta;
+            remaining.z = 0f;
+            var s = transform.lossyScale;
+            float radius = (_col != null ? _col.radius : 1.50957f) * Mathf.Max(s.x, Mathf.Max(s.y, s.z));
+            var localCenter = _col != null ? _col.center : GodotSpace.Pos(0.00968528f, 1.97357f, -0.00248528f);
+            // Godot's move_and_slide max_slides is 6; 4 slides are plenty for a sphere in a 2D plane
+            for (int i = 0; i < 4 && remaining.sqrMagnitude > 1e-8f; i++)
+            {
+                var center = pos + transform.rotation * Vector3.Scale(localCenter, s);
+                float dist = remaining.magnitude;
+                var dir = remaining / dist;
+                if (!SweepNearest(center, radius - Skin, dir, dist + Skin, out var hit)) { pos += remaining; break; }
+
+                float travel = Mathf.Max(0f, hit.distance - Skin);
+                pos += dir * travel;
+                var n = hit.normal;
+                n.z = 0f;
+                n = n.sqrMagnitude > 1e-6f ? n.normalized : -dir;
+                remaining = dir * (dist - travel);
+                remaining -= Vector3.Dot(remaining, n) * n; // slide along the surface
+            }
             // The play-area walls stop the boss like they stop everything else
-            p.x = Mathf.Clamp(p.x, -28.5f, -1.5f);
-            p.z = BossZ;
-            transform.position = p;
+            pos.x = Mathf.Clamp(pos.x, -28.5f, -1.5f);
+            pos.z = BossZ;
+            transform.position = pos;
+        }
+
+        /// <summary>Nearest solid hit of the sweep, skipping the boss's own collider and shapes it already overlaps.</summary>
+        bool SweepNearest(Vector3 center, float radius, Vector3 dir, float dist, out RaycastHit best)
+        {
+            best = default;
+            bool found = false;
+            int n = Physics.SphereCastNonAlloc(center, radius, dir, CastHits, dist, MoveMask, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < n; i++)
+            {
+                var h = CastHits[i];
+                if (h.collider == null || h.collider == _col || !IsSolid(h.collider)) continue;
+                // Shapes overlapping at the start come back with distance 0 and point zero: ignoring
+                // them lets the boss move out of anything it ended up inside instead of sticking.
+                if (h.distance <= 0f && h.point == Vector3.zero) continue;
+                if (!found || h.distance < best.distance) { best = h; found = true; }
+            }
+            return found;
+        }
+
+        Collider _playerHull;
+
+        /// <summary>
+        /// Solid colliders plus the submarine's "Hull" trigger: the CharacterController is an upright
+        /// stand-in, the Hull capsule is the real horizontal body of player.tscn the boss collides with.
+        /// </summary>
+        bool IsSolid(Collider c)
+        {
+            if (!c.isTrigger) return true;
+            if (_playerHull == null)
+            {
+                var player = GameState.Instance?.Player;
+                var hull = player != null ? player.transform.Find("Hull") : null;
+                if (hull != null) _playerHull = hull.GetComponent<Collider>();
+            }
+            return c == _playerHull;
         }
 
         /// <summary>Godot look_at(player, up = +Z): the boss's -Z points at the player.</summary>
@@ -200,8 +271,10 @@ namespace TooFishy
         void CheckCollisions()
         {
             var center = transform.TransformPoint(GodotSpace.Pos(0.00968528f, 1.97357f, -0.00248528f));
-            foreach (var c in Physics.OverlapSphere(center, 1.50957f + 0.1f, ~0, QueryTriggerInteraction.Ignore))
+            // Collide + IsSolid: the player is hit through its Hull capsule, which the sweep stops at
+            foreach (var c in Physics.OverlapSphere(center, 1.50957f + 0.1f, MoveMask, QueryTriggerInteraction.Collide))
             {
+                if (c == _col || !IsSolid(c)) continue;
                 var crate = c.GetComponentInParent<DestroyableBarrier>();
                 if (crate != null)
                 {

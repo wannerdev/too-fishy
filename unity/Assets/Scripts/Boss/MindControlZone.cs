@@ -60,10 +60,14 @@ namespace TooFishy
         void Update()
         {
             if (!_active) return;
+            // mind_control_zone.gd:93 runs in _process, which the tree pause (dialogs) stops
+            var gs = GameState.Instance;
+            if (gs != null && gs.Paused) return;
             float dt = Time.deltaTime;
+            if (dt <= 0f) return;
             _time += dt;
 
-            var player = GameState.Instance?.Player;
+            var player = gs?.Player;
             if (player != null)
             {
                 bool inside = TouchesHull(player.transform);

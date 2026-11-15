@@ -90,10 +90,11 @@ namespace TooFishy
 
             // inv_toggle (E / Tab): inv_ui.gd hides its panel, player.gd opens the inventory menu
             if (GameInput.ConsumeInventory() && !_pause.IsPaused && !Dialogs.PausesGame)
-            {
                 _inventory.Toggle();
-                _invUi.gameObject.SetActive(!_invUi.gameObject.activeSelf);
-            }
+            // inv_ui is hidden exactly while the menu is open, so closing it with its Close button
+            // brings the panel back too (Godot inv_ui.gd:36-41 only flips it on the key and desyncs)
+            bool showInvUi = !_inventory.IsOpen;
+            if (_invUi.gameObject.activeSelf != showInvUi) _invUi.gameObject.SetActive(showInvUi);
 
             // boss_dialog_ui.gd: closing the post-intro rescue dialog triggers the regular death
             if (gs.PendingRegularDeathTransition && !Dialogs.Displayed)
@@ -113,6 +114,8 @@ namespace TooFishy
             bool frozen = _pause.IsPaused || Dialogs.PausesGame;
             Time.timeScale = frozen ? 0f : 1f;
             gs.Paused = frozen || gs.DeathScreen;
+            // player.gd:103/272: presses made while paused are dropped, not replayed on resume
+            if (gs.Paused) GameInput.ClearGameplayPresses();
         }
     }
 }

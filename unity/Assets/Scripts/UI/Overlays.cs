@@ -118,7 +118,8 @@ namespace TooFishy
                 new StyleBox(new Color(0.6f, 0f, 0f, 0.7f), 1, new Color(1f, 0f, 0f, 0.3f), 4),
                 new StyleBox(new Color(1f, 0f, 0f, 0.8f), 0, null, 4));
             UiKit.Fill(b._bar.Root);
-            UiKit.Fill(UiKit.Label(b._bar.Root, "Label", "Blobfish", 16, UiKit.DefaultText, TextAnchor.UpperCenter).rectTransform);
+            // boss_health_bar.tscn Label: horizontal and vertical alignment centred
+            UiKit.Fill(UiKit.Label(b._bar.Root, "Label", "Blobfish", 16, UiKit.DefaultText, TextAnchor.MiddleCenter).rectTransform);
             root.gameObject.SetActive(false);
             return b;
         }
@@ -158,7 +159,10 @@ namespace TooFishy
         }
 
         int MaxCracks => _webgl ? 3 : 5;
-        float CrackFadeTime => _webgl ? 2f : 3f;
+        // damage_effects.gd crack_fade_time (3 s, 2 s on WebGL) is never reached: player.gd:523-526
+        // calls reset_pressure_damage() every frame out of pressure, and its start_all_cracks_fade()
+        // (damage_effects.gd:276-284) fades every crack over 2 s right away and removes it.
+        const float CrackFadeAll = 2f;
         float PressureCrackInterval => _webgl ? 2f : 1f;
 
         public static DamageEffects Create(RectTransform canvas)
@@ -204,7 +208,13 @@ namespace TooFishy
             if (!_underPressure) return;
             _underPressure = false;
             _pressureTimer = 0f;
-            foreach (var c in _cracks) c.Age = 0f;
+            // start_all_cracks_fade(): cracks added under pressure start their 2 s fade now
+            foreach (var c in _cracks)
+                if (!c.Fading)
+                {
+                    c.Fading = true;
+                    c.Age = 0f;
+                }
             _redFlash.color = new Color(1, 0, 0, 0);
         }
 
@@ -222,7 +232,8 @@ namespace TooFishy
             img.rectTransform.localRotation = Quaternion.Euler(0, 0, Random.value * 360f);
             float alpha = (_webgl ? 0.9f : 0.8f) - (_cracks.Count + 1) * (_webgl ? 0.15f : 0.1f);
             img.color = new Color(1, 1, 1, alpha);
-            _cracks.Add(new Crack { Image = img, StartAlpha = alpha });
+            // Out of pressure the next reset_pressure_damage() starts its fade at once
+            _cracks.Add(new Crack { Image = img, StartAlpha = alpha, Fading = !_underPressure, Age = 0f });
         }
 
         void Update()
@@ -235,21 +246,19 @@ namespace TooFishy
                 if (_flashAlpha <= 0f) _flashing = false;
             }
 
-            // Cracks wait crack_fade_time (not while under pressure), then fade out over 1 s
+            // Fading cracks go from their alpha to 0 over 2 s, also under pressure (the tweens keep
+            // running); cracks added under pressure hold until it ends (damage_effects.gd:146-154, 276-284)
             for (int i = _cracks.Count - 1; i >= 0; i--)
             {
                 var c = _cracks[i];
-                if (_underPressure) continue;
+                if (!c.Fading) continue;
                 c.Age += dt;
-                if (c.Age > CrackFadeTime)
+                float t = Mathf.Clamp01(c.Age / CrackFadeAll);
+                c.Image.color = new Color(1, 1, 1, Mathf.Lerp(c.StartAlpha, 0f, t));
+                if (t >= 1f)
                 {
-                    float t = Mathf.Clamp01(c.Age - CrackFadeTime);
-                    c.Image.color = new Color(1, 1, 1, Mathf.Lerp(c.StartAlpha, 0f, t));
-                    if (t >= 1f)
-                    {
-                        Destroy(c.Image.gameObject);
-                        _cracks.RemoveAt(i);
-                    }
+                    Destroy(c.Image.gameObject);
+                    _cracks.RemoveAt(i);
                 }
             }
 

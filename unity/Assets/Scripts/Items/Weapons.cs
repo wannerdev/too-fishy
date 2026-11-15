@@ -182,14 +182,19 @@ namespace TooFishy
     }
 
     /// <summary>
-    /// Port of scenes/bullet.tscn + scripts/items/bullet.gd: a small yellow ball at 50 u/s for 2 s.
-    /// Its hit cylinder (radius 0.1, 4.16 deep along Z) catches the first fish it touches or
-    /// deals 5 damage to the boss.
+    /// Port of scenes/bullet.tscn + scripts/items/bullet.gd: a small yellow ball at 25 u/s for 2 s.
+    /// Its hit cylinder (radius 0.05, 2.08 deep along Z around the bullet) catches the first fish
+    /// it touches or deals 5 damage to the boss. ak47.gd:61 copies the muzzle's global transform,
+    /// so the bullet carries its world scale 0.5 (Pivot 20 x SmFishSubmarine 0.01 x ak47 2.5).
     /// </summary>
     public class Bullet : MonoBehaviour
     {
-        const float Speed = 50f;
-        const float Lifetime = 2f;
+        const float Speed = 25f;        // bullet.gd:3 speed 50, translate() through the 0.5 scale
+        const float Lifetime = 2f;      // bullet.gd:5
+        const float HitRadius = 0.05f;  // CylinderShape r 0.5 x 0.2 x 0.5
+        // Cylinder height 20.811 x 0.2 x 0.5 = 2.08; Unity capsule ends are sphere centres
+        const float CapsuleHalf = 1.04f - HitRadius;
+        static readonly RaycastHit[] Hits = new RaycastHit[32];
         Vector3 _dir;
         float _age;
 
@@ -200,7 +205,7 @@ namespace TooFishy
             go.layer = Layers.Projectile;
             Object.Destroy(go.GetComponent<Collider>());
             go.transform.position = position;
-            go.transform.localScale = Vector3.one * 0.1f; // SphereMesh r 0.5 × 0.1
+            go.transform.localScale = Vector3.one * 0.05f; // SphereMesh r 0.5 x 0.1 x muzzle scale 0.5
             go.GetComponent<Renderer>().sharedMaterial = Materials.Opaque(new Color(0.973f, 1f, 0.19f));
             var b = go.AddComponent<Bullet>();
             direction.z = 0f;
@@ -210,34 +215,45 @@ namespace TooFishy
         void Update()
         {
             float dt = Time.deltaTime;
-            transform.position += _dir * Speed * dt;
-            _age += dt;
-            if (_age >= Lifetime)
+            if (dt <= 0f) return; // bullet.gd _physics_process does not run while the tree is paused
+            float dist = Speed * dt;
+            var p = transform.position;
+
+            // Godot tests the Area3D at every 60 Hz tick; sweep the hit cylinder over the whole
+            // step (start overlaps come back at distance 0) so no frame rate can skip a fish.
+            var a = new Vector3(p.x, p.y, p.z - CapsuleHalf);
+            var b = new Vector3(p.x, p.y, p.z + CapsuleHalf);
+            int n = Physics.CapsuleCastNonAlloc(a, b, HitRadius, _dir, Hits, dist, ~0, QueryTriggerInteraction.Ignore);
+            FishBehaviour hitFish = null;
+            BossController hitBoss = null;
+            float best = float.MaxValue;
+            for (int i = 0; i < n; i++)
             {
+                var c = Hits[i].collider;
+                if (c == null || Hits[i].distance >= best) continue;
+                var fish = c.GetComponentInParent<FishBehaviour>();
+                var boss = fish == null ? c.GetComponentInParent<BossController>() : null;
+                if (fish == null && boss == null) continue;
+                best = Hits[i].distance;
+                hitFish = fish;
+                hitBoss = boss;
+            }
+            if (hitFish != null)
+            {
+                GameState.Instance?.Player?.CatchFish(hitFish);
+                Destroy(gameObject);
+                return;
+            }
+            if (hitBoss != null)
+            {
+                hitBoss.TakeDamage(5);
                 Destroy(gameObject);
                 return;
             }
 
-            var p = transform.position;
-            var a = new Vector3(p.x, p.y, -2.08f);
-            var b = new Vector3(p.x, p.y, 2.08f);
-            foreach (var c in Physics.OverlapCapsule(a, b, 0.1f, ~0, QueryTriggerInteraction.Ignore))
-            {
-                var fish = c.GetComponentInParent<FishBehaviour>();
-                if (fish != null)
-                {
-                    GameState.Instance?.Player?.CatchFish(fish);
-                    Destroy(gameObject);
-                    return;
-                }
-                var boss = c.GetComponentInParent<BossController>();
-                if (boss != null)
-                {
-                    boss.TakeDamage(5);
-                    Destroy(gameObject);
-                    return;
-                }
-            }
+            transform.position = p + _dir * dist;
+            _age += dt;
+            if (_age >= Lifetime) Destroy(gameObject);
         }
     }
 }

@@ -92,15 +92,16 @@ namespace TooFishy
             go.tag = "Player";
 
             // Godot uses a horizontal capsule (height 2.8, radius 0.5); a CharacterController is
-            // always upright, so it approximates the hull with a sphere-ish capsule.
+            // always upright, so it only covers the middle (1.0 tall like the hull) and
+            // PlayerController.SweepHull sweeps the Hull capsule below against the walls first.
             go.layer = Layers.Player;
             var cc = go.AddComponent<CharacterController>();
-            cc.height = 1.2f;
+            cc.height = 1.0f;
             cc.radius = 0.5f;
             cc.center = GodotSpace.Pos(-0.0102715f, 0.129017f, 0.00199914f);
 
             // The real hull of player.tscn: capsule height 2.79761, radius 0.5, lying along X.
-            // Fish get pushed out of it (FishBehaviour.ResolveCollisions).
+            // Fish get pushed out of it (FishBehaviour.ResolveCollisions); walls stop it (SweepHull).
             var hull = new GameObject("Hull");
             hull.layer = Layers.Player;
             hull.transform.SetParent(go.transform, false);
@@ -172,6 +173,9 @@ namespace TooFishy
             // at every depth; 2 matches the Godot brightness of that rock (ScreenshotDirector -tflamp sweep).
             spot.intensity = 2f;
             spot.color = Color.white;
+            // Godot's GL Compatibility renderer lights the cone per pixel; with Auto the Medium/Low quality
+            // levels (WebGL) give the only pixel slot to the sun and the lamp falls back to vertex lighting
+            spot.renderMode = LightRenderMode.ForcePixel;
             spot.enabled = false;
 
             // Camera3D: child of the player at (0, 1.18841, 5.28607), no rotation, fov 75
@@ -244,7 +248,13 @@ namespace TooFishy
             bool ak2 = gs.GetUpgradeLevel(Upgrade.DualAk47) > 0;
 
             var player = gs.Player;
-            if (player != null && player.IsFriendSubmarine && Lamp != null) Lamp.enabled = false;
+            if (player != null && player.IsFriendSubmarine)
+            {
+                // player.gd:896-903 switch_to_friend_submarine(): no spot lamp, both guns shown at once
+                if (Lamp != null) Lamp.enabled = false;
+                if (ak && Ak47 != null) Ak47.SetActive(true);
+                if (ak2 && Ak47Second != null) Ak47Second.SetActive(true);
+            }
             else if (gs.IsDocked)
             {
                 if (lamp && Lamp != null) Lamp.enabled = true;

@@ -18,7 +18,8 @@ namespace TooFishy
         static readonly StyleBox CardAffordable = new(new Color(0.1f, 0.25f, 0.4f, 0.7f), 2, new Color(0.3f, 0.5f, 0.7f), 8);
         static readonly StyleBox CardExpensive = new(new Color(0.25f, 0.15f, 0.15f, 0.7f), 2, new Color(0.5f, 0.3f, 0.3f), 8);
         static readonly StyleBox PipFilled = new(new Color(0.3f, 0.7f, 1f), 0, null, 3);
-        static readonly StyleBox PipEmpty = new(new Color(0.545f, 0.545f, 0.545f), 0, null, 3);
+        // upgrades.gd:329-330 update_button_state() redraws empty pips like this on every menu open
+        static readonly StyleBox PipEmpty = new(new Color(0.307f, 0.307f, 0.307f, 0.5f), 0, null, 3);
         static readonly Color Yellow = new(0.9f, 0.9f, 0.5f);
         static readonly Color RedText = new(0.9f, 0.5f, 0.5f);
         static readonly Color GreenText = new(0.5f, 0.9f, 0.5f);

@@ -45,6 +45,8 @@ namespace TooFishy
         public float HarpoonCdRemaining => _harpoonCd;
         public float BuoyCdRemaining => _buoyCd;
         public float DroneCdRemaining => _droneCd;
+        /// <summary>player.gd:292: the drone cooldown is over and the sub is not docked.</summary>
+        public bool DroneReady => _droneCd <= 0f && !(GameState.Instance != null && GameState.Instance.IsDocked);
 
         void Awake()
         {
@@ -104,8 +106,11 @@ namespace TooFishy
             float inputX = GameInput.Horizontal;
             float inputY = GameInput.Vertical;
             bool atSurface = transform.position.y >= -0.2f;
-            if (inputY > 0f && atSurface) inputY = 0f;
-            else if (inputY == 0f && atSurface) inputY = -0.3f; // auto-sink at surface when idle
+            // player.gd:231 is_action_pressed("move_down") or touch_direction.y < 0, before the clamps below
+            bool diveHeld = inputY < 0f;
+            if (inputY > 0f && atSurface) inputY = 0f; // player.gd:197-198 / :204-205
+            // player.gd:208-209: a separate if, so holding up at the surface still auto-sinks (bobbing)
+            if (inputY == 0f && atSurface) inputY = -0.3f;
 
             if (inputX != 0f)
             {
@@ -130,14 +135,15 @@ namespace TooFishy
             float vx = _velX * horBonus;
             float vy = _velY * vertBonus;
             if (vy > 0f) vy *= 1.2f;
-            if (transform.position.y >= -0.2f && inputY < 0f) vy *= 2f;
+            // player.gd:231-232: only an active dive is doubled, not the idle auto-sink
+            if (_velY < 0f && atSurface && diveHeld) vy *= 2f;
 
             var move = new Vector3(vx, vy, 0f) + _externalForces;
             _externalForces = Vector3.Lerp(_externalForces, Vector3.zero, 5f * dt);
             // player.gd calls move_and_slide() twice per physics tick (movement() and
             // collision()) with the same velocity, so the submarine covers twice the distance.
-            _cc.Move(LimitByFish(move * dt));
-            _cc.Move(LimitByFish(move * dt));
+            _cc.Move(SweepHull(LimitByFish(move * dt), dt));
+            _cc.Move(SweepHull(LimitByFish(move * dt), dt));
 
             // Lock Z
             var p = transform.position;
@@ -193,6 +199,105 @@ namespace TooFishy
         CapsuleCollider _hull;
         static readonly Collider[] FishHits = new Collider[16];
 
+        /// <summary>
+        /// player.gd move_and_slide() with the real body of player.tscn:14-15/66-68 (capsule 2.79761 x r 0.5
+        /// lying along X). The CharacterController is upright and only covers the middle of that hull, so
+        /// the motion is first swept with the Hull capsule against solid walls (rocks, barriers, crates,
+        /// the boss) and slid along them; fish, triggers and the player's own colliders are not in the mask.
+        /// A hull that already overlaps a wall (teleport, crate spawned on the sub) may never move deeper
+        /// and is pushed back out, like move_and_slide's penetration recovery, so it cannot get stuck.
+        /// </summary>
+        Vector3 SweepHull(Vector3 motion, float dt)
+        {
+            if (_hull == null) _hull = transform.Find("Hull")?.GetComponent<CapsuleCollider>();
+            if (_hull == null) return motion;
+            var ht = _hull.transform;
+            Vector3 c = ht.TransformPoint(_hull.center);
+            Vector3 axis = ht.right * Mathf.Max(0f, _hull.height * 0.5f - _hull.radius);
+            float r = _hull.radius;
+            var planar = new Vector3(motion.x, motion.y, 0f);
+
+            // start inside a wall: remember the push-out directions (in the XY plane; Z is locked)
+            _penCount = 0;
+            Vector3 recover = Vector3.zero;
+            int n = Physics.OverlapCapsuleNonAlloc(c + axis, c - axis, r, WallHits, WallMask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var col = WallHits[i];
+                if (col == null || col.isTrigger) continue;
+                if (!Physics.ComputePenetration(_hull, ht.position, ht.rotation, col, col.transform.position, col.transform.rotation,
+                        out var outDir, out float depth))
+                    continue;
+                outDir.z = 0f;
+                if (outDir.sqrMagnitude < 0.25f) continue; // overlap only along the locked Z axis
+                outDir.Normalize();
+                if (_penCount < PenDirs.Length) PenDirs[_penCount++] = outDir;
+                if (depth > HullSkin) recover += outDir * Mathf.Min(depth, HullRecoverSpeed * dt);
+            }
+
+            // sweep and slide (up to 3 contacts, like move_and_slide's max_slides)
+            Vector3 done = Vector3.zero;
+            Vector3 remaining = NotDeeper(planar);
+            for (int iter = 0; iter < 3; iter++)
+            {
+                float dist = remaining.magnitude;
+                if (dist < 1e-5f) break;
+                Vector3 dir = remaining / dist;
+                Vector3 p = c + done;
+                int hits = Physics.CapsuleCastNonAlloc(p + axis, p - axis, r, dir, WallCastHits, dist + HullSkin, WallMask,
+                    QueryTriggerInteraction.Ignore);
+                int best = -1;
+                float bestDist = float.MaxValue;
+                for (int j = 0; j < hits; j++)
+                {
+                    var h = WallCastHits[j];
+                    if (h.collider == null || h.collider.isTrigger) continue;
+                    // overlapping at the start (reported at distance 0, normal = -dir): handled by NotDeeper above,
+                    // and it must not block moving back out
+                    if (h.distance <= 0f) continue;
+                    if (Vector3.Dot(h.normal, dir) >= 0f) continue;
+                    if (h.distance < bestDist) { bestDist = h.distance; best = j; }
+                }
+                if (best < 0)
+                {
+                    done += remaining;
+                    break;
+                }
+                var hit = WallCastHits[best];
+                float step = Mathf.Min(Mathf.Max(0f, bestDist - HullSkin), dist);
+                done += dir * step;
+                // player.gd:113-114 collision(): a solid wall (not a CharacterBody3D like the boss) kills
+                // horizontal momentum
+                if (Mathf.Abs(hit.normal.x) > 0.7f && hit.collider.GetComponentInParent<BossController>() == null)
+                    _velX = 0f;
+                var nrm = new Vector3(hit.normal.x, hit.normal.y, 0f);
+                if (nrm.sqrMagnitude < 1e-6f) break;
+                nrm.Normalize();
+                remaining = dir * (dist - step);
+                remaining = NotDeeper(remaining - nrm * Vector3.Dot(remaining, nrm));
+            }
+            return new Vector3(done.x + recover.x, done.y + recover.y, motion.z);
+        }
+
+        /// <summary>Removes the part of the motion that goes deeper into a wall the hull already overlaps.</summary>
+        Vector3 NotDeeper(Vector3 motion)
+        {
+            for (int i = 0; i < _penCount; i++)
+            {
+                float into = -Vector3.Dot(motion, PenDirs[i]);
+                if (into > 0f) motion += PenDirs[i] * into;
+            }
+            return motion;
+        }
+
+        const int WallMask = (1 << Layers.Default) | (1 << Layers.World);
+        const float HullSkin = 0.02f;
+        const float HullRecoverSpeed = 5f;
+        static readonly Collider[] WallHits = new Collider[16];
+        static readonly RaycastHit[] WallCastHits = new RaycastHit[16];
+        static readonly Vector3[] PenDirs = new Vector3[16];
+        int _penCount;
+
         // player.gd rockingMotion(): slow sway when idle, tilt against horizontal motion, ±8°.
         void RockingMotion(float dt, Vector3 velocity)
         {
@@ -234,7 +339,8 @@ namespace TooFishy
             if (GameInput.ConsumeBuoy() && gs.GetUpgradeLevel(Upgrade.SurfaceBuoy) > 0 && !gs.IsDocked &&
                 _buoyCd <= 0f && transform.position.y < -1f)
             {
-                Teleport(new Vector3(transform.position.x, -1f, PlayerZ));
+                // player.gd:316 only sets position.y; velocity_x/velocity_y carry on
+                Teleport(new Vector3(transform.position.x, -1f, PlayerZ), keepVelocity: true);
                 SoundPlayer.Play("bup");
                 Effects.BuoyEffect(transform.position);
                 _buoyCd = BuoyCooldown;
@@ -243,9 +349,12 @@ namespace TooFishy
             // Quick save (V) with Inventory Insurance
             if (GameInput.ConsumeQuickSave() && gs.GetUpgradeLevel(Upgrade.InventorySave) > 0 && !gs.IsDocked)
             {
-                SaveSystem.SaveGame();
-                SoundPlayer.Play("save");
-                PopupText.Show("Game Saved", PopupPos, Color.green);
+                // SaveGame refuses (with its own popup) during the intro
+                if (SaveSystem.SaveGame())
+                {
+                    SoundPlayer.Play("save");
+                    PopupText.Show("Game Saved", PopupPos, Color.green);
+                }
             }
 
             if (GameInput.ConsumeDrone() && !gs.IsDocked)
@@ -324,6 +433,18 @@ namespace TooFishy
         public void CatchFish(FishBehaviour fish)
         {
             if (fish == null) return;
+            // Two bullets (dual AK47) or harpoon + bullet can reach the same fish in one frame. Destroy is
+            // deferred, so the second hit would run catch_fish again: a second effect and shake and a false
+            // "Inventory full!" (same bug in player.gd:411-448 / fish.gd:81 queue_free). Catch it once.
+            if (_caughtFrame != Time.frameCount)
+            {
+                _caughtFrame = Time.frameCount;
+                _caughtThisFrame.Clear();
+            }
+            if (!_caughtThisFrame.Add(fish.GetInstanceID())) return;
+            // drop its colliders now, so the next bullet's overlap test this frame flies past the dead fish
+            foreach (var col in fish.GetComponentsInChildren<Collider>()) col.enabled = false;
+
             var item = fish.ToInventoryItem();
             float trauma = Mathf.Clamp(item.Weight / 50f, 0.2f, 0.6f);
             if (item.Shiny) trauma *= 1.5f;
@@ -338,6 +459,9 @@ namespace TooFishy
             else
                 PopupText.Show("Inventory full!", PopupPos, Color.red);
         }
+
+        readonly System.Collections.Generic.HashSet<int> _caughtThisFrame = new();
+        int _caughtFrame = -1;
 
         /// <summary>player.gd hurtPlayer(): trauma always, damage at most once per second.</summary>
         public void Hurt(int damage)
@@ -423,6 +547,8 @@ namespace TooFishy
             _friendLamp.color = new Color(1f, 1f, 0.8f);
             _friendLamp.intensity = 1f;
             _friendLamp.range = 8f;
+            // Godot's GL Compatibility renderer lights it per pixel; never let it fall back to vertex lighting
+            _friendLamp.renderMode = LightRenderMode.ForcePixel;
         }
 
         /// <summary>player.gd switch_to_normal_submarine()</summary>
@@ -434,12 +560,31 @@ namespace TooFishy
             if (_friendLamp != null) Destroy(_friendLamp.gameObject);
         }
 
-        public void Teleport(Vector3 pos)
+        public void Teleport(Vector3 pos, bool keepVelocity = false)
         {
             _cc.enabled = false;
             transform.position = pos;
             _cc.enabled = true;
-            _velX = _velY = 0f;
+            if (!keepVelocity) _velX = _velY = 0f;
+        }
+
+        /// <summary>
+        /// destroyable_barier.gd:413-429 crate reward: speed_horizontal/speed_vertical raised for a while,
+        /// then lowered by the same amount (boosts stack). create_timer() also runs while paused.
+        /// </summary>
+        public void ApplySpeedBoost(float addHorizontal, float addVertical, float seconds)
+        {
+            if (!isActiveAndEnabled) return;
+            StartCoroutine(SpeedBoost(addHorizontal, addVertical, seconds));
+        }
+
+        System.Collections.IEnumerator SpeedBoost(float addHorizontal, float addVertical, float seconds)
+        {
+            speedHorizontal += addHorizontal;
+            speedVertical += addVertical;
+            yield return new WaitForSecondsRealtime(seconds);
+            speedHorizontal -= addHorizontal;
+            speedVertical -= addVertical;
         }
 
         public void AddExternalForce(Vector3 force) => _externalForces += force;
@@ -448,7 +593,8 @@ namespace TooFishy
         {
             // player.gd collision(): a solid wall kills horizontal momentum (fish never block the
             // CharacterController; they are pushed by the hull instead)
-            if (Mathf.Abs(hit.normal.x) > 0.7f) _velX = 0f;
+            // (player.gd:113 skips CharacterBody3Ds such as the boss, as SweepHull does)
+            if (Mathf.Abs(hit.normal.x) > 0.7f && hit.collider.GetComponentInParent<BossController>() == null) _velX = 0f;
         }
     }
 }

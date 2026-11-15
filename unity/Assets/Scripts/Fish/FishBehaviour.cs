@@ -58,26 +58,15 @@ namespace TooFishy
             fish.BuildVisual(type);
 
             bool shiny = shinyOverride ?? Random.value < section.ShinyRate;
-            // fish.gd: `weight` is an int export, so the clamped random weight is truncated.
-            int weight = (int)Mathf.Clamp(
-                Random.Range(stats.WeightMin, stats.WeightMax) * section.WeightMultiplier,
-                stats.WeightMin, stats.WeightMax);
-            int price = Mathf.RoundToInt(weight * stats.PriceWeightMultiplier);
-            if (shiny) price *= 3;
-
-            // fish.gd get_scale_for_weight()
-            float normalWeight = (stats.WeightMax - stats.WeightMin) / 2f;
-            float factor = normalWeight > 0f ? (weight - stats.WeightMin) / normalWeight : 0f;
-            float s = 1f + factor * 0.3f;
-            go.transform.localScale = new Vector3(s, s, 1f);
-
             fish.Type = type;
-            fish.Weight = weight;
-            fish.Price = price;
             fish.IsShiny = shiny;
+            // section.gd:161-162 passes the int config bounds, so get_scale_for_weight's
+            // (max - min) / 2 is an integer division there.
+            fish.RollWeight(stats.WeightMin, stats.WeightMax, section.WeightMultiplier, stats.PriceWeightMultiplier,
+                Mathf.Floor((stats.WeightMax - stats.WeightMin) / 2f));
             fish.Home = home;
             fish._speed = Random.Range(stats.SpeedMin, stats.SpeedMax);
-            fish._id = _nextId++;
+            fish._id = NextId();
             fish._animTime = Random.value * 2f * Mathf.PI;
             fish.SetAngle(Random.Range(MinAngle, MaxAngle));
             if (shiny) fish.AddShinyParticles();
@@ -88,15 +77,58 @@ namespace TooFishy
         public static FishBehaviour SpawnReleased(InventoryItem item, Vector3 pos, Transform parent, bool scatter = true)
         {
             var fish = Spawn(pos, item.Type, Stage.Surface, parent, 0, item.Shiny);
-            fish.Weight = item.Weight;
-            fish.Price = item.Price;
-            // release_fish() rolls the weight in 0.8–1.2 × the item's weight, which scales the
-            // fish to 1.0–1.6 (1.3 on average). The weight itself is kept so a fish can't change
-            // value by being released and caught again.
-            fish.transform.localScale = new Vector3(1.3f, 1.3f, 1f);
+            // inventory.gd:178-190 release_fish(): initialize() again with min/max = item weight
+            // x 0.8 / x 1.2 and weight multiplier 1.0, so weight and price are re-rolled
+            // (fish.gd:188-197) and the scale is 1.0-1.6 (float bounds, plain division).
+            float w = item.Weight;
+            fish.RollWeight(w * 0.8f, w * 1.2f, 1f, FishConfig.Stats[item.Type].PriceWeightMultiplier, w * 0.4f / 2f);
             var player = GameState.Instance?.PlayerTransform;
             if (scatter && player != null) fish.Scatter(player);
             return fish;
+        }
+
+        /// <summary>
+        /// fish.gd:188-197 initialize(): `weight` is an untyped export, so it keeps the float
+        /// clamp() result and the price is rounded from that float (x3 if shiny). Only InvItem's
+        /// `weight: int` truncates it (inventory_item.gd:6, see ToInventoryItem).
+        /// </summary>
+        void RollWeight(float min, float max, float weightMultiplier, float priceMultiplier, float normalWeight)
+        {
+            float w = Mathf.Clamp(Random.Range(min, max) * weightMultiplier, min, max);
+            // GDScript round() rounds halves away from zero
+            int price = (int)System.Math.Round(w * priceMultiplier, System.MidpointRounding.AwayFromZero);
+            if (IsShiny) price *= 3;
+            Weight = w;
+            Price = price;
+
+            // fish.gd:329-335 get_scale_for_weight()
+            float factor = normalWeight > 0f ? (w - min) / normalWeight : 0f;
+            float s = 1f + factor * 0.3f;
+            transform.localScale = new Vector3(s, s, 1f);
+        }
+
+        /// <summary>Next fish id; fish.gd:73 uses get_instance_id(), unique for the process.</summary>
+        static int NextId()
+        {
+            if (_nextId == int.MaxValue) _nextId = 1;
+            return _nextId++;
+        }
+
+        /// <summary>
+        /// Makes the next fish id greater than <paramref name="maxUsedId"/> (called after a save is
+        /// loaded, so saved cargo ids cannot collide with new fish; Godot's instance ids are unique
+        /// across runs).
+        /// </summary>
+        public static void ReserveIdsAbove(int maxUsedId)
+        {
+            if (maxUsedId >= _nextId && maxUsedId < int.MaxValue) _nextId = maxUsedId + 1;
+        }
+
+        /// <summary>Gives loaded cargo items fresh ids so they cannot match fish already spawned.</summary>
+        public static void ReassignIds(System.Collections.Generic.IEnumerable<InventoryItem> items)
+        {
+            foreach (var it in items)
+                if (it != null) it.Id = NextId();
         }
 
         /// <summary>Model, material and collision shape from the Godot fish scene of each type.</summary>
@@ -205,6 +237,8 @@ namespace TooFishy
 
         void Update()
         {
+            // fish.gd _physics_process does not run while get_tree().paused (dialogs, pause menu)
+            if (Time.timeScale == 0f) return;
             float dt = Time.deltaTime;
             if (_rotationCdLeft > 0f) _rotationCdLeft -= dt;
 
@@ -235,7 +269,8 @@ namespace TooFishy
             {
                 if (!IsLookingUp) SetAngle(Random.Range(MaxAngle / 2f, MaxAngle));
             }
-            else if (Random.value < 0.004f)
+            // fish.gd:113 rolls randf() < .004 once per 60 Hz physics tick
+            else if (Random.value < 1f - Mathf.Pow(1f - 0.004f, dt * 60f))
                 SetAngle(Random.Range(MinAngle, MaxAngle));
 
             p += _velocity * dt;
@@ -250,10 +285,11 @@ namespace TooFishy
             transform.position = p;
             ResolveCollisions();
 
-            // Godot keeps every fish until it is caught or surfaces; despawn far-away ones so
-            // the streamed level does not accumulate them.
+            // Godot keeps every fish until it is caught or surfaces. Sections stream out beyond about
+            // 105 m and keep their fish count (LevelGenerator section memory), so only drop fish far
+            // past that; at 130 m returning sections came back nearly empty.
             var player = GameState.Instance?.PlayerTransform;
-            if (player != null && Mathf.Abs(p.y - player.position.y) > 130f)
+            if (player != null && Mathf.Abs(p.y - player.position.y) > 250f)
             {
                 Destroy(gameObject);
                 return;
@@ -338,8 +374,9 @@ namespace TooFishy
             SetAngle(fp.y < p.y ? Random.Range(35f, 55f) : Random.Range(-35f, -55f));
         }
 
+        // fish.gd:69-80 removeFish(): InvItem.weight is `int` (inventory_item.gd:6), so it truncates
         public InventoryItem ToInventoryItem() =>
-            new InventoryItem(Type, Weight, Price, _id, IsShiny);
+            new InventoryItem(Type, (int)Weight, Price, _id, IsShiny);
     }
 
     /// <summary>The primitive parts of scenes/mobs/dummy_fish.tscn (Godot default material).</summary>

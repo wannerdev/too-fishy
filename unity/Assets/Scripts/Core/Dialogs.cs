@@ -43,7 +43,21 @@ namespace TooFishy
         };
 
         public static string CurrentFrom => From(Section);
-        public static string CurrentText => Lines.TryGetValue(Section, out var l) ? ToUnityRichText(l[Mathf.Clamp(Index, 0, l.Length - 1)]) : "";
+        public static string CurrentText
+        {
+            get
+            {
+                var l = LinesFor(Section);
+                return l != null ? ToUnityRichText(l[Mathf.Clamp(Index, 0, l.Length - 1)]) : "";
+            }
+        }
+
+        /// <summary>
+        /// strings.gd names keys and the mouse; on touch devices the tutorials describe the
+        /// on-screen controls instead (same number of lines, so Continue still counts Lines).
+        /// </summary>
+        static string[] LinesFor(DialogSection s) =>
+            GameInput.TouchMode && TouchLines.TryGetValue(s, out var t) ? t : Lines.TryGetValue(s, out var l) ? l : null;
 
         public static void Reset()
         {
@@ -132,6 +146,15 @@ namespace TooFishy
                 "[color=#E0E0E0]Noo the blobfish used some crazy mind control on you. You have to rescue your friend, but first you need to get a better submarine to be able to beat the blobfish.[/color]" } },
             { DialogSection.Ak47Unlocked, new[] {
                 "[color=#E0E0E0]Damn, that blobfish is no joke! [/color][color=#f21820ae]I need better weapons...[/color][color=#E0E0E0]\n\nThat's it! I heard about a [/color][color=#2C3E50]gun upgrade[/color][color=#E0E0E0] available at the dock. If I'm going to save my friend from that creature, I'll need some serious firepower.\n\nI should head back to the dock and check the [/color][color=#2C3E50]EQUIPMENT[/color][color=#E0E0E0] section for an [/color][color=#f21820ae]AK47[/color][color=#E0E0E0]. Time to show that blobfish who's boss![/color]" } },
+        };
+
+        // TUTORIAL1 / TUTORIAL3 of strings.gd with the touch controls (TouchControls) in place of the keys
+        static readonly Dictionary<DialogSection, string[]> TouchLines = new()
+        {
+            { DialogSection.Tutorial1, new[] {
+                "[color=#E0E0E0]Hey man! Is your sub ready yet?\nYes? Awesome! Go shoot some fish with that spear of yours!\n\nYou can move your submarine by [/color][color=#2C3E50]holding and dragging on the left half[/color][color=#E0E0E0] of the screen\nTo catch the fish, throw a spear with a [/color][color=#2C3E50]tap on the right half[/color][color=#E0E0E0]\n\nWatch your [/color][color=#f21820ae]pressure[/color][color=#E0E0E0] or else you get damage and [/color][color=#1B5E20]Health[/color][color=#E0E0E0] levels and return to the surface when needed!\nRemember, you can swim near the dock to [/color][color=#1B5E20]upgrade your sub[/color][color=#E0E0E0] and [/color][color=#1B5E20]sell fish[/color][color=#E0E0E0].[/color]" } },
+            { DialogSection.Tutorial3, new[] {
+                "[color=#E0E0E0]I found that the [/color][color=#2C3E50]pickaxe[/color][color=#E0E0E0] is actually very useful!\nYou can break the barriers with them.\nIf you have it tap the [/color][color=#2C3E50]'DIG'[/color][color=#E0E0E0] button to use it![/color]" } },
         };
     }
 }

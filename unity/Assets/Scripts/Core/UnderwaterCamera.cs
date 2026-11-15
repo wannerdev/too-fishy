@@ -3,7 +3,7 @@ using UnityEngine;
 namespace TooFishy
 {
     /// <summary>
-    /// Port of scripts/camera.gd: per-stage fog colour (1 s tween) and sun energy (3 s tween),
+    /// Port of scripts/camera.gd: per-stage fog colour (1 s tween), then sun energy (3 s tween),
     /// fog only below the surface, and the FOV adjustment for non-16:9 screens.
     /// </summary>
     public class UnderwaterCamera : MonoBehaviour
@@ -20,6 +20,8 @@ namespace TooFishy
         Color _fogFrom, _fogTo;
         float _lightFrom, _lightTo;
         float _fogT = 1f, _lightT = 1f;
+        float _lightNext;
+        bool _lightPending;
         Camera _cam;
         float _lastAspect;
         CameraClearFlags _surfaceClearFlags;
@@ -59,15 +61,23 @@ namespace TooFishy
                 _fogFrom = RenderSettings.fogColor;
                 _fogTo = StageColor(stage);
                 _fogT = 0f;
-                _lightFrom = Sun != null ? Sun.intensity : 1f;
-                _lightTo = StageLight(stage);
-                _lightT = 0f;
+                // camera.gd:74-77: one sequential tween, the light step only starts after the 1 s fog step
+                _lightNext = StageLight(stage);
+                _lightPending = true;
             }
 
             if (_fogT < 1f)
             {
                 _fogT = Mathf.Min(1f, _fogT + Time.deltaTime / 1f);
                 RenderSettings.fogColor = Color.Lerp(_fogFrom, _fogTo, _fogT);
+            }
+            if (_lightPending && _fogT >= 1f)
+            {
+                // the step reads its start value when it begins (t = 1 s); an older light ramp runs until then
+                _lightPending = false;
+                _lightFrom = Sun != null ? Sun.intensity : _lightNext;
+                _lightTo = _lightNext;
+                _lightT = 0f;
             }
             if (_lightT < 1f && Sun != null)
             {

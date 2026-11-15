@@ -27,28 +27,56 @@ namespace TooFishy
         /// <summary>
         /// Mouse clicks fire the harpoon on desktops, including desktop browsers and laptops with a
         /// touch screen (where <see cref="TouchMode"/> is true too). On phones every tap is also
-        /// reported as a mouse click, so there only taps on the right half of the screen count (TouchControls).
+        /// reported as a mouse click, so there only taps that TouchControls turns into fire count:
+        /// the right half, and with the Rotatable Harpoon also quick taps on the left half.
         /// </summary>
         public static bool MouseFireAllowed => !Application.isMobilePlatform && Input.touchCount == 0;
 
         // Written by TouchControls
         public static Vector2 VirtualMove;
-        static bool _virtualFire, _virtualBuoy, _virtualDrone, _virtualPickaxe, _virtualInventory, _virtualPause;
+        static bool _virtualFire, _virtualBuoy, _virtualDrone, _virtualPickaxe, _virtualSave, _virtualInventory, _virtualPause;
         static Vector2 _virtualAim;
         static bool _hasVirtualAim;
 
+        /// <summary>
+        /// player.gd:102-104 / 270-293 check !GameState.paused at the moment of the press: a gameplay
+        /// press made while paused, in a pausing dialog or on the death screen is dropped, not queued.
+        /// </summary>
+        static bool GameplayBlocked
+        {
+            get
+            {
+                var gs = GameState.Instance;
+                return gs != null && (gs.Paused || gs.DeathScreen);
+            }
+        }
+
         public static void PressFire(Vector2 screenPos)
         {
+            // player.gd:347-350 is_mouse_over_ui(): an open inventory menu blocks every throw
+            if (GameplayBlocked || InventoryMenu.AnyOpen) return;
             _virtualFire = true;
             _virtualAim = screenPos;
             _hasVirtualAim = true;
         }
 
-        public static void PressBuoy() => _virtualBuoy = true;
-        public static void PressDrone() => _virtualDrone = true;
-        public static void PressPickaxe() => _virtualPickaxe = true;
+        public static void PressBuoy() { if (!GameplayBlocked) _virtualBuoy = true; }
+        public static void PressDrone() { if (!GameplayBlocked) _virtualDrone = true; }
+        public static void PressPickaxe() { if (!GameplayBlocked) _virtualPickaxe = true; }
+        /// <summary>The touch SAVE button: Godot "inventory_save" (V, player.gd:281-288).</summary>
+        public static void PressSave() { if (!GameplayBlocked) _virtualSave = true; }
+        // Not blocked: GameUI reads these while paused (the II button has to resume)
         public static void PressInventory() => _virtualInventory = true;
         public static void PressPause() => _virtualPause = true;
+
+        /// <summary>
+        /// GameUI calls this every frame the game is frozen: PlayerController does not run then, so a
+        /// press from the frame the pause started would otherwise fire after resuming.
+        /// </summary>
+        public static void ClearGameplayPresses()
+        {
+            _virtualFire = _virtualBuoy = _virtualDrone = _virtualPickaxe = _virtualSave = false;
+        }
 
         /// <summary>-1..1. Screen-right is positive.</summary>
         public static float Horizontal
@@ -75,18 +103,25 @@ namespace TooFishy
         }
 
         /// <summary>
-        /// Fire request for this frame. In touch mode only the on-screen aim pad fires, so taps on
-        /// the joystick or on buttons never launch a harpoon. With a mouse, clicks over UI are ignored.
+        /// Fire request for this frame. In touch mode only the on-screen pad fires (TouchControls), so
+        /// taps on buttons never launch a harpoon and joystick drags never do. With a mouse, clicks
+        /// over UI are ignored.
+        /// While the inventory menu is open nothing fires (player.gd:347-350 is_mouse_over_ui()); the
+        /// request is still consumed so it does not fire once the menu closes.
         /// </summary>
         public static bool ConsumeFire(out Vector2 aimScreenPos)
         {
+            bool inventoryOpen = InventoryMenu.AnyOpen;
             if (_virtualFire)
             {
                 _virtualFire = false;
-                aimScreenPos = _virtualAim;
-                return true;
+                if (!inventoryOpen)
+                {
+                    aimScreenPos = _virtualAim;
+                    return true;
+                }
             }
-            if (MouseFireAllowed && Input.GetMouseButtonDown(0) && !IsPointerOverUI())
+            if (!inventoryOpen && MouseFireAllowed && Input.GetMouseButtonDown(0) && !IsPointerOverUI())
             {
                 aimScreenPos = Input.mousePosition;
                 return true;
@@ -100,7 +135,7 @@ namespace TooFishy
         public static bool ShootHeld => VirtualShootHeld || (MouseFireAllowed && Input.GetMouseButton(1) && !IsPointerOverUI());
 
         /// <summary>Godot "inventory_save" action (V): quick save with Inventory Insurance.</summary>
-        public static bool ConsumeQuickSave() => Input.GetKeyDown(KeyCode.V);
+        public static bool ConsumeQuickSave() => Consume(ref _virtualSave) || Input.GetKeyDown(KeyCode.V);
 
         /// <summary>Godot "cht_toggle" action (C): cheats panel.</summary>
         public static bool ConsumeCheats() => Input.GetKeyDown(KeyCode.C);

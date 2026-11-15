@@ -10,6 +10,12 @@ namespace TooFishy
         public static readonly StyleBox Panel = new(new Color(0.05f, 0.2f, 0.3f, 0.95f), 3, new Color(0.2f, 0.4f, 0.7f), 12);
         public static readonly Color Subtitle = new(0.8f, 0.8f, 0.9f);
         public static readonly Color Status = new(0.8f, 0.9f, 0.5f);
+
+        /// <summary>
+        /// Godot's menu sizes are made for a mouse (50 px buttons, 16 px slider handles); on touch
+        /// screens the pause menus and the death screen are drawn 1.5x so fingers hit them.
+        /// </summary>
+        public static float TouchScale => GameInput.TouchMode ? 1.5f : 1f;
     }
 
     /// <summary>Port of scenes/ui/pause_menu.tscn + pause_menu.gd (Esc, ignored while docked).</summary>
@@ -64,6 +70,7 @@ namespace TooFishy
         public void Pause()
         {
             IsPaused = true;
+            transform.localScale = Vector3.one * MenuStyles.TouchScale; // centred panels grow in place
             gameObject.SetActive(true);
             ShowPauseElements(true);
         }
@@ -108,6 +115,7 @@ namespace TooFishy
         Button[] _tabButtons;
         Text _status;
         float _statusTimer;
+        RectTransform _keyboardControls, _touchControls;
 
         static readonly UiKit.ButtonStyles TabSelected = new()
         {
@@ -174,18 +182,21 @@ namespace TooFishy
             // Controls
             var info = UiKit.Label(_tabs[2], "ControlsInfoLabel", "Game Controls:", 16, UiKit.DefaultText, TextAnchor.UpperCenter);
             UiKit.Place(info.rectTransform, 0, 0, 1, 0, 0, 0, 0, 22);
-            string[,] controls =
+            // settings_menu.tscn ControlsGrid (keyboard)
+            _keyboardControls = ControlsGrid(_tabs[2], "KeyboardControlsGrid", new[,]
             {
                 { "Movement", "WASD / Arrow Keys" }, { "Throw Harpoon", "Left Mouse Button" }, { "Swing Pickaxe", "Space" },
                 { "Toggle Inventory", "E / Tab" }, { "Pause Game", "Escape" }, { "Surface Buoy", "B" },
                 { "Sell with Drone", "Q" }, { "Quick Save", "V" }
-            };
-            for (int i = 0; i < controls.GetLength(0); i++)
+            }, 22f);
+            // Touch devices have no keys: the TouchControls gestures and buttons instead
+            _touchControls = ControlsGrid(_tabs[2], "TouchControlsGrid", new[,]
             {
-                float ry = 37 + i * 22;
-                UiKit.Place(UiKit.Label(_tabs[2], "Label", controls[i, 0], 16, UiKit.DefaultText).rectTransform, 0, 0, 0.5f, 0, 0, ry, 0, ry + 22);
-                UiKit.Place(UiKit.Label(_tabs[2], "Value", controls[i, 1], 16, UiKit.DefaultText).rectTransform, 0.5f, 0, 1, 0, 0, ry, 0, ry + 22);
-            }
+                { "Movement", "Hold + drag left half" }, { "Throw Harpoon", "Tap right half" }, { "Fire AK47", "Hold GUN" },
+                { "Swing Pickaxe", "DIG button" }, { "Toggle Inventory", "INV button" }, { "Pause Game", "II button" },
+                { "Surface Buoy", "BUOY button" }, { "Sell with Drone", "SELL button" }, { "Quick Save", "SAVE button" }
+            }, 20f);
+            ShowControlsFor(GameInput.TouchMode);
 
             var back = UiKit.Button(c, "BackButton", "Back", 16, UiKit.MenuButton, Back);
             UiKit.Place(back.GetComponent<RectTransform>(), 0, 1, 1, 1, 0, -40, 0, 0);
@@ -193,6 +204,24 @@ namespace TooFishy
             _status = UiKit.Label(panel, "StatusLabel", "", 16, MenuStyles.Status, TextAnchor.MiddleCenter);
             UiKit.Place(_status.rectTransform, 0.5f, 0, 0.5f, 0, -150, -103 + 200, 150, -77 + 200);
             SelectTab(0);
+        }
+
+        static RectTransform ControlsGrid(RectTransform parent, string name, string[,] controls, float rowH)
+        {
+            var grid = UiKit.Fill(UiKit.Rect(parent, name));
+            for (int i = 0; i < controls.GetLength(0); i++)
+            {
+                float ry = 37 + i * rowH;
+                UiKit.Place(UiKit.Label(grid, "Label", controls[i, 0], 16, UiKit.DefaultText).rectTransform, 0, 0, 0.5f, 0, 0, ry, 0, ry + rowH);
+                UiKit.Place(UiKit.Label(grid, "Value", controls[i, 1], 16, UiKit.DefaultText).rectTransform, 0.5f, 0, 1, 0, 0, ry, 0, ry + rowH);
+            }
+            return grid;
+        }
+
+        void ShowControlsFor(bool touch)
+        {
+            _keyboardControls.gameObject.SetActive(!touch);
+            _touchControls.gameObject.SetActive(touch);
         }
 
         void SelectTab(int index)
@@ -208,13 +237,21 @@ namespace TooFishy
         {
             UiKit.Place(UiKit.Label(parent, label, label, 16, UiKit.DefaultText).rectTransform, 0, 0, 1, 0, 0, y, 0, y + 22);
             var root = UiKit.Rect(parent, label + "Slider");
-            UiKit.Place(root, 0, 0, 1, 0, 0, y + 24, 0, y + 40);
+            // Same centre line as before (y + 32), but a 54 px invisible hit area (almost the whole
+            // 55 px row; labels take no raycasts): a finger can grab the bar anywhere and it jumps
+            // there, like Godot's HSlider on click
+            UiKit.Place(root, 0, 0, 1, 0, 0, y + 5, 0, y + 59);
+            var hit = root.gameObject.AddComponent<Image>();
+            hit.color = new Color(0, 0, 0, 0);
+            hit.raycastTarget = true;
             var track = UiKit.Panel(root, "Track", new StyleBox(new Color(0.1f, 0.1f, 0.1f, 0.8f), 0, null, 2));
             UiKit.Place(track.rectTransform, 0, 0.5f, 1, 0.5f, 0, -2, 0, 2);
             var fillArea = UiKit.Place(UiKit.Rect(root, "Fill Area"), 0, 0.5f, 1, 0.5f, 0, -2, 0, 2);
             var fill = UiKit.Panel(fillArea, "Fill", new StyleBox(new Color(0.7f, 0.7f, 0.7f, 1f), 0, null, 2));
             fill.rectTransform.sizeDelta = Vector2.zero;
-            var handleArea = UiKit.Place(UiKit.Rect(root, "Handle Slide Area"), 0, 0, 1, 1, 8, 0, -8, 0);
+            // Slider drives the handle's anchors to 0..1 of this area on the cross axis, so the area
+            // keeps the old 16 px height: the taller hit rect must not stretch the handle
+            var handleArea = UiKit.Place(UiKit.Rect(root, "Handle Slide Area"), 0, 0.5f, 1, 0.5f, 8, -8, -8, 8);
             var handle = UiKit.Picture(handleArea, "Handle", UiKit.Circle, false);
             handle.raycastTarget = true;
             handle.rectTransform.sizeDelta = new Vector2(16, 16);
@@ -234,6 +271,10 @@ namespace TooFishy
 
         static void Toggle(RectTransform parent, string label, ref float y, bool value, Action<bool> onChange)
         {
+            // Invisible row behind label and switch: the whole row toggles (finger-sized CheckButton)
+            var row = UiKit.ColorRect(parent, label + "Row", new Color(0, 0, 0, 0));
+            row.raycastTarget = true;
+            UiKit.Place(row.rectTransform, 0, 0, 1, 0, 0, y - 4, 0, y + 34);
             UiKit.Place(UiKit.Label(parent, label, label, 16, UiKit.DefaultText).rectTransform, 0, 0, 1, 0, 0, y, -50, y + 26);
             // Godot CheckButton: a small switch on the right
             var bg = UiKit.Panel(parent, label + "Toggle", new StyleBox(new Color(0.3f, 0.3f, 0.3f, 1f), 0, null, 9));
@@ -255,6 +296,10 @@ namespace TooFishy
             var nav = toggle.navigation;
             nav.mode = Navigation.Mode.None;
             toggle.navigation = nav;
+            var rowButton = row.gameObject.AddComponent<Button>();
+            rowButton.transition = Selectable.Transition.None;
+            rowButton.navigation = nav;
+            rowButton.onClick.AddListener(() => toggle.isOn = !toggle.isOn);
             y += 41;
         }
 
@@ -277,7 +322,12 @@ namespace TooFishy
             _owner.ShowPauseElements(true);
         }
 
-        public void Show() => gameObject.SetActive(true);
+        public void Show()
+        {
+            ShowControlsFor(GameInput.TouchMode); // a browser can turn out to be a touch device later
+            gameObject.SetActive(true);
+        }
+
         public void Hide() => gameObject.SetActive(false);
     }
 
@@ -356,7 +406,9 @@ namespace TooFishy
 
         void OnSave()
         {
-            ShowStatus(SaveSystem.SaveGame() ? "Game saved successfully!" : "Failed to save game!");
+            var gs = GameState.Instance;
+            bool intro = gs != null && gs.IsIntro();
+            ShowStatus(SaveSystem.SaveGame() ? "Game saved successfully!" : intro ? "Can't save during the intro!" : "Failed to save game!");
             UpdateUi();
         }
 
@@ -454,8 +506,10 @@ namespace TooFishy
             // Fit the panel to the message (RichTextLabel fit_content)
             float textH = Mathf.Max(140f, _message.preferredHeight);
             UiKit.Place(_message.rectTransform, 0, 0, 1, 0, 0, 120, 0, 120 + textH);
-            UiKit.Place(_continue, 0, 0, 1, 0, 0, 130 + textH, 0, 130 + textH + 31);
-            float h = Mathf.Max(200f, 130 + textH + 31 + 50);
+            // Godot's Continue is 31 px high; on touch screens it is made finger-sized
+            float contH = GameInput.TouchMode ? 60f : 31f;
+            UiKit.Place(_continue, 0, 0, 1, 0, 0, 130 + textH, 0, 130 + textH + contH);
+            float h = Mathf.Max(200f, 130 + textH + contH + 50);
             UiKit.Centered(_panel, 700, h);
         }
     }
@@ -485,6 +539,7 @@ namespace TooFishy
         {
             bool show = GameState.Instance != null && GameState.Instance.DeathScreen;
             if (_panel.gameObject.activeSelf != show) _panel.gameObject.SetActive(show);
+            if (show) _panel.localScale = Vector3.one * MenuStyles.TouchScale; // finger-sized Respawn
         }
     }
 }

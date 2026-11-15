@@ -124,6 +124,9 @@ namespace TooFishy
         public void SetItems(IEnumerable<InventoryItem> items)
         {
             Items = new List<InventoryItem>(items);
+            // Saved ids come from an earlier run's counter; fresh ones cannot match a live fish
+            // (inventory.gd:28-31 rejects duplicate ids; Godot's instance ids never repeat).
+            FishBehaviour.ReassignIds(Items);
             UpdateTotals();
             _state?.NotifyInventoryUpdated();
         }

@@ -18,14 +18,19 @@ namespace TooFishy
         Color _color;
         Vector3 _start, _target;
         float _t;
+        float _duration = Duration;
 
         public static void Show(string text, Vector3 worldPos) => Show(text, worldPos, Color.white);
 
-        public static void Show(string text, Vector3 worldPos, Color color)
+        public static void Show(string text, Vector3 worldPos, Color color) => Show(text, worldPos, color, Duration);
+
+        /// <summary>destroyable_barier.gd:292 shows its proximity hint with duration 4.0 instead of 0.8.</summary>
+        public static void Show(string text, Vector3 worldPos, Color color, float duration)
         {
             var go = new GameObject("PopupText");
             var p = go.AddComponent<PopupText>();
             p._color = color;
+            p._duration = duration;
             p._start = worldPos + new Vector3(Random.Range(-HorizontalDrift, HorizontalDrift), 0f, 0f);
             p._target = p._start + Vector3.up * MoveAmount;
             go.transform.position = p._start;
@@ -57,9 +62,10 @@ namespace TooFishy
 
         void LateUpdate()
         {
-            _t += Time.unscaledDeltaTime;
+            // popup_text.gd tweens pause with the tree: freeze while Time.timeScale is 0 (pause menu, dialogs)
+            _t += Time.deltaTime;
             const float popIn = 0.2f, settle = 0.15f;
-            float moveDuration = Duration - settle;
+            float moveDuration = _duration - settle;
             float fadeStart = moveDuration * 0.6f;
 
             float alpha, scale;
